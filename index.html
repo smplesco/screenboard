@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Screenboard</title>
 <meta name="description" content="A chalkboard and whiteboard for drawing diagrams and explaining things on a call.">
 <meta name="theme-color" content="#16181c">
@@ -156,6 +156,41 @@
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
   .pop [data-tip]::after{bottom:calc(100% + 8px)}
   .sw{cursor:pointer}
+
+  /* ---- touch + small screens ---- */
+  html,body{overscroll-behavior:none;-webkit-touch-callout:none}
+  button,.chip,input[type=range]{touch-action:manipulation}
+  #pagesGroup{display:flex;align-items:center;gap:1px}
+  #pagesSlot{cursor:default}
+  #pagesSlot:hover{background:none}
+  #pagesSlot .div{display:none}
+  #selbar{left:50%;bottom:76px;transform:translateX(-50%);display:none;align-items:center;gap:1px;padding:6px}
+  #selbar.show{display:flex}
+  @media (hover:none){ [data-tip]::after{display:none} }
+  @media (pointer:coarse){
+    .b{width:38px;height:38px}
+    .b svg{width:20px;height:20px}
+    .chip{height:38px;padding:0 11px}
+    .preset{width:36px;height:36px}
+    .mi{height:38px}
+    .sw{width:26px;height:26px}
+    .swatches{grid-template-columns:repeat(6,26px)}
+    #stylePop{width:232px}
+    input[type=range]{height:26px}
+    input[type=range]::-webkit-slider-thumb{width:16px;height:16px;margin-top:-7px}
+  }
+  @media (max-width:760px){
+    #dock{left:10px;right:10px;bottom:10px;transform:none;padding:5px}
+    body.hidden-ui #dock{transform:translateY(12px)}
+    #tools{flex:1;min-width:0;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+    #tools::-webkit-scrollbar{display:none}
+    #topright{top:10px;right:10px}
+    #zoomPct{left:auto;right:10px;bottom:auto;top:68px}
+    #selbar{bottom:72px}
+    #hint{left:10px;right:10px;bottom:auto;top:70px;transform:none;text-align:center}
+    #help .sheet{padding:18px}
+  }
+  @media (max-width:760px) and (pointer:coarse){ #selbar{bottom:78px} }
 </style>
 </head>
 <body>
@@ -174,11 +209,21 @@
   <i class="div"></i>
   <button class="chip" id="colorChip" data-tip="Color"><span class="dot"></span></button>
   <button class="chip" id="styleChip" data-tip="Stroke"><span class="nib"><i></i></span></button>
+  <div id="pagesGroup">
+    <i class="div"></i>
+    <button class="b" id="prevPage" data-tip="Previous board (PgUp)"><svg viewBox="0 0 24 24"><path d="m14 6-6 6 6 6"/></svg></button>
+    <div class="pageno" id="pageCount">1 / 1</div>
+    <button class="b" id="nextPage" data-tip="Next board (PgDn)"><svg viewBox="0 0 24 24"><path d="m10 6 6 6-6 6"/></svg></button>
+    <button class="b" id="addPage" data-tip="New board (Ctrl N)"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+  </div>
+</div>
+
+<div id="selbar" class="chrome surface">
+  <button class="b" id="dupBtn" data-tip="Duplicate (Ctrl D)"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button>
+  <button class="b" id="frontBtn" data-tip="Bring to front"><svg viewBox="0 0 24 24"><rect x="8" y="3" width="12" height="12" rx="2"/><path d="M16 17v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h3"/></svg></button>
+  <button class="b" id="backBtn" data-tip="Send to back"><svg viewBox="0 0 24 24"><rect x="4" y="9" width="12" height="12" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/></svg></button>
   <i class="div"></i>
-  <button class="b" id="prevPage" data-tip="Previous board (PgUp)"><svg viewBox="0 0 24 24"><path d="m14 6-6 6 6 6"/></svg></button>
-  <div class="pageno" id="pageCount">1 / 1</div>
-  <button class="b" id="nextPage" data-tip="Next board (PgDn)"><svg viewBox="0 0 24 24"><path d="m10 6 6 6-6 6"/></svg></button>
-  <button class="b" id="addPage" data-tip="New board (Ctrl N)"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button class="b" id="delBtn" data-tip="Delete (Del)"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 11v6M14 11v6M6 7l1 12h10l1-12M9 7V4h6v3"/></svg></button>
 </div>
 
 <button id="zoomPct" class="chrome">100%</button>
@@ -203,6 +248,7 @@
   <button class="mi" id="imgBtn"><span>Add a photo</span><em>Ctrl V</em></button>
   <button class="mi" id="themeBtn"><span>Surface</span><em id="themeVal">Chalkboard</em></button>
   <button class="mi" id="gridBtn"><span>Guides</span><em id="gridVal">Off</em></button>
+  <div class="mi" id="pagesSlot"><span>Boards</span></div>
   <i class="msep"></i>
   <button class="mi" id="openBtn"><span>Open a board</span><em>Ctrl O</em></button>
   <button class="mi" id="saveBtn"><span>Save all boards</span><em>Ctrl S</em></button>
@@ -253,6 +299,9 @@
       <div class="row"><span>Switch boards</span><em>PgUp, PgDn</em></div>
       <div class="row"><span>Surface, guides</span><em>Shift B, Shift G</em></div>
       <div class="row"><span>Save, open, PNG</span><em>Ctrl S, O, E</em></div>
+      <h3>Touch</h3>
+      <div class="row"><span>Pan and zoom</span><em>Two fingers</em></div>
+      <div class="row"><span>Edit text</span><em>Double-tap</em></div>
       <h3>View</h3>
       <div class="row"><span>Pan</span><em>Space-drag, scroll</em></div>
       <div class="row"><span>Zoom</span><em>Ctrl scroll</em></div>
@@ -644,7 +693,9 @@ function rebuildScene(){
 }
 
 /* ---------------- overlay (screen space) ---------------- */
-const HANDLE = 7;
+const COARSE = window.matchMedia('(pointer:coarse)').matches;
+const HANDLE = COARSE ? 11 : 7;
+const PICK = COARSE ? 14 : 8;
 function handlesFor(o){
   const out = [];
   if(o.type==='line'||o.type==='arrow'){
@@ -748,7 +799,16 @@ function frame(){
   ctx.drawImage(sceneCv,0,0);
   if(live){ ctx.globalAlpha = liveAlpha; ctx.drawImage(liveCv,0,0); ctx.globalAlpha = 1; }
   drawOverlay();
+  syncSelBar();
   requestAnimationFrame(frame);
+}
+
+let selShown = false;
+function syncSelBar(){
+  const show = S.selection.length>0 && !(drag && drag.mode==='marquee');
+  if(show===selShown) return;
+  selShown = show;
+  $('selbar').classList.toggle('show', show);
 }
 
 /* ---------------- live layer ---------------- */
@@ -789,9 +849,37 @@ function pointerPressure(e, wp){
   return smoothP;
 }
 
+const pointers = new Map();
+let gesture = null;
+
+function cancelActiveDrag(){
+  if(!drag) return;
+  if(drag.mode==='draw' || drag.mode==='shape') endLive(false);
+  else if(drag.mode==='erase' && !drag.erased){ page().undo.pop(); syncHistoryButtons(); }
+  else if(drag.mode==='marquee') marquee = null;
+  drag = null;
+}
+function startGesture(){
+  const [a,b] = [...pointers.values()], v = view();
+  gesture = {d:Math.hypot(b.x-a.x,b.y-a.y)||1, cx:(a.x+b.x)/2, cy:(a.y+b.y)/2, s:v.s, vx:v.x, vy:v.y};
+}
+function moveGesture(){
+  const [a,b] = [...pointers.values()], v = view();
+  const d = Math.hypot(b.x-a.x,b.y-a.y)||1;
+  const cx = (a.x+b.x)/2, cy = (a.y+b.y)/2;
+  const ns = clamp(gesture.s*(d/gesture.d), .1, 8), f = ns/gesture.s;
+  v.s = ns;
+  v.x = cx - (gesture.cx-gesture.vx)*f;
+  v.y = cy - (gesture.cy-gesture.vy)*f;
+  updateZoomLabel();
+}
+
 function onDown(e){
   if(e.button===2) return;
   $('hint')?.remove();
+  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if(pointers.size===2){ cancelActiveDrag(); startGesture(); return; }
+  if(pointers.size>2) return;
   cv.setPointerCapture(e.pointerId);
   const sp = {x:e.clientX, y:e.clientY};
   const wp = S2W(sp.x, sp.y);
@@ -830,7 +918,9 @@ function onDown(e){
 }
 
 function onMove(e){
-  hover = {x:e.clientX, y:e.clientY};
+  if(pointers.has(e.pointerId)) pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if(gesture && pointers.size>=2){ moveGesture(); return; }
+  hover = e.pointerType==='touch' ? null : {x:e.clientX, y:e.clientY};
   if(!drag) return;
   const sp = {x:e.clientX, y:e.clientY};
   const wp = S2W(sp.x, sp.y);
@@ -877,6 +967,8 @@ function drawSegNoAlpha(c,o,i){
 }
 
 function onUp(e){
+  pointers.delete(e.pointerId);
+  if(gesture && pointers.size<2){ gesture = null; drag = null; return; }
   if(!drag){ return; }
   const mode = drag.mode;
   if(mode==='pan'){ cv.style.cursor=''; }
@@ -904,11 +996,11 @@ function eraseAt(wp){
 
 /* ---------- select / move / resize ---------- */
 function startSelect(sp, wp, e){
-  const tol = 8/view().s;
+  const tol = PICK/view().s;
   // handle grab
   if(S.selection.length===1){
     for(const h of handlesFor(S.selection[0])){
-      if(Math.hypot(sp.x-h.p.x, sp.y-h.p.y) <= HANDLE+3){
+      if(Math.hypot(sp.x-h.p.x, sp.y-h.p.y) <= HANDLE + (COARSE?7:3)){
         pushUndo();
         const o = beginEdit(S.selection)[0];
         drag = {mode:h.k==='rot'?'rotate':'resize', key:h.k, o, start:cloneObj(o),
@@ -1054,7 +1146,7 @@ function openTextEditor(wp, existing){
   ta.value = o.text;
   const s = W2S(o.x, o.y), v = view();
   ta.style.left = s.x+'px'; ta.style.top = s.y+'px';
-  ta.style.fontSize = (o.size*v.s)+'px';
+  ta.style.fontSize = (COARSE ? Math.max(16, o.size*v.s) : o.size*v.s)+'px';
   ta.style.lineHeight = 1.25;
   ta.style.color = o.color;
   ta.style.fontWeight = 500;
@@ -1437,9 +1529,13 @@ $('colorChip').onclick = e=> togglePop($('colorPop'), e.currentTarget, 'above');
 $('styleChip').onclick = e=> togglePop($('stylePop'), e.currentTarget, 'above');
 $('menuBtn').onclick   = e=> togglePop($('menu'), e.currentTarget, 'below');
 document.querySelectorAll('#menu .mi').forEach(b=>{
-  if(b.id==='themeBtn' || b.id==='gridBtn') return;
+  if(b.id==='themeBtn' || b.id==='gridBtn' || b.id==='pagesSlot') return;
   b.addEventListener('click', closePops);
 });
+$('dupBtn').onclick   = ()=> duplicateSelection();
+$('frontBtn').onclick = ()=> reorder(1);
+$('backBtn').onclick  = ()=> reorder(-1);
+$('delBtn').onclick   = ()=> deleteSelection();
 $('undo').onclick = undo;
 $('redo').onclick = redo;
 $('zoomPct').onclick = resetView;
@@ -1459,6 +1555,17 @@ function toggleFullscreen(){
   if(document.fullscreenElement) document.exitFullscreen();
   else document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
 }
+
+/* --- layout for the current form factor --- */
+const narrowMQ = window.matchMedia('(max-width:760px)');
+function layoutForWidth(){
+  const g = $('pagesGroup');
+  const target = narrowMQ.matches ? $('pagesSlot') : $('dock');
+  if(g.parentElement !== target) target.appendChild(g);
+}
+narrowMQ.addEventListener('change', layoutForWidth);
+layoutForWidth();
+if(window.visualViewport) window.visualViewport.addEventListener('resize', resize);
 
 /* --- toast --- */
 let toastEl = null, toastT = 0;
@@ -1555,6 +1662,7 @@ function reorder(dir){
 
 /* ---------------- start ---------------- */
 resize();
+if(COARSE) $('hint').textContent = 'Draw anywhere. Two fingers pan and zoom.';
 setTheme('chalkboard');
 setTool('pen');
 syncPages(); syncHistoryButtons(); updateZoomLabel();
