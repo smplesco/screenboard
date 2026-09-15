@@ -1,0 +1,16 @@
+{
+  "name": "Screenboard",
+  "short_name": "Screenboard",
+  "description": "A chalkboard and whiteboard for drawing diagrams and explaining things on a call.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#12352c",
+  "theme_color": "#16181c",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
