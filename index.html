@@ -215,6 +215,21 @@
   @media (max-width:760px){ #recbar{top:10px;left:10px} }
   @media (prefers-reduced-motion:reduce){ .recdot{animation:none} }
 
+  /* ---- suggestions under a text box ---- */
+  #taPop{position:fixed;z-index:21;display:none;align-items:center;gap:6px;padding:5px;background:var(--menu);
+    border-radius:10px;box-shadow:var(--elev), inset 0 0 0 1px var(--hair);font-size:12.5px;color:var(--fg-dim);
+    max-width:calc(100vw - 20px)}
+  #taPop.show{display:flex}
+  #taPop .tp-prev{display:none;align-items:center;gap:8px;padding:0 4px 0 6px;min-width:0}
+  #taPop .tp-prev.show{display:flex}
+  #taPop .tp-math{color:var(--fg);display:grid;place-items:center;flex:none}
+  #taPop .tp-math svg{display:block}
+  #taPop .tp-note{white-space:nowrap}
+  #taPop .btn{height:28px;padding:0 10px;font-size:12.5px;display:flex;align-items:center;gap:6px}
+  #taPop .btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  #taPop .tp-sep{width:1px;height:18px;background:var(--hair)}
+  @media (pointer:coarse){ #taPop .btn{height:36px} }
+
   /* ---- dialogs ---- */
   #dlgwrap{position:fixed;inset:0;z-index:31;display:none;place-items:center;background:rgba(6,7,9,.55);padding:12px}
   #dlgwrap.show{display:grid}
@@ -279,7 +294,15 @@
   <button class="tg" id="recStop">Stop</button>
 </div>
 
+<div id="taPop">
+  <div class="tp-prev" id="tpLatex"><span class="tp-math" id="tpMath"></span><span class="tp-note" id="tpNote">Formats as math when you click away</span>
+    <button class="btn" id="tpKeep" type="button">Keep as text</button></div>
+  <i class="tp-sep" id="tpSep"></i>
+  <button class="btn primary" id="tpGraph" type="button" title="Ctrl G"><svg viewBox="0 0 24 24"><path d="M4 4v16h16"/><path d="M7 15c2.5-7 5-7 6-3s3.5 4 6-4"/></svg>Graph it</button>
+</div>
+
 <div id="selbar" class="chrome surface">
+  <button class="b" id="graphBtn" data-tip="Graph this"><svg viewBox="0 0 24 24"><path d="M4 4v16h16"/><path d="M7 15c2.5-7 5-7 6-3s3.5 4 6-4"/></svg></button>
   <button class="b" id="editBtn" data-tip="Edit"><svg viewBox="0 0 24 24"><path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19z"/></svg></button>
   <i class="div" id="editDiv"></i>
   <button class="b" id="dupBtn" data-tip="Duplicate (Ctrl D)"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button>
@@ -367,6 +390,8 @@
       <div class="row"><span>Graph, equation, ruler</span><em>Math button</em></div>
       <div class="row"><span>Rotate the ruler</span><em>Scroll over it</em></div>
       <div class="row"><span>Edit a graph or equation</span><em>Double-click</em></div>
+      <div class="row"><span>Graph math you typed</span><em>Graph it, or Ctrl G</em></div>
+      <div class="row"><span>Format LaTeX in a text box</span><em>Automatic</em></div>
       <h3>Ink</h3>
       <div class="row"><span>Snap to a clean shape</span><em>Hold at the end</em></div>
       <div class="row"><span>Resize it while snapped</span><em>Keep dragging</em></div>
@@ -1028,7 +1053,19 @@ function frame(){
   requestAnimationFrame(frame);
 }
 
-let selShown = false, editShown = null;
+let selShown = false, editShown = null, graphShown = null;
+const graphableCache = new WeakMap();
+function selectionGraphLines(){
+  if(S.selection.length!==1) return null;
+  const o = S.selection[0];
+  if(o.type!=='text' && o.type!=='equation') return null;
+  const src = o.type==='text' ? o.text : o.tex;
+  const hit = graphableCache.get(o);
+  if(hit && hit.src===src) return hit.lines;
+  const lines = o.type==='text' ? graphLinesFor(src) : graphLinesFor('$' + src.replace(/\\begin\{gathered\}|\\end\{gathered\}/g, '').split('\\\\').join('$\n$') + '$');
+  graphableCache.set(o, {src, lines});
+  return lines;
+}
 function syncSelBar(){
   const show = S.selection.length>0 && !(drag && drag.mode==='marquee');
   const ed = S.selection.length===1 && EDITABLE.includes(S.selection[0].type);
@@ -1037,6 +1074,8 @@ function syncSelBar(){
     $('editBtn').style.display = ed ? '' : 'none';
     $('editDiv').style.display = ed ? '' : 'none';
   }
+  const gr = !drag && !!selectionGraphLines();
+  if(gr !== graphShown){ graphShown = gr; $('graphBtn').style.display = gr ? '' : 'none'; }
   if(show===selShown) return;
   selShown = show;
   $('selbar').classList.toggle('show', show);
@@ -1444,34 +1483,161 @@ function openTextEditor(wp, existing){
     ta.style.height = (ta.scrollHeight+4)+'px'; };
   grow();
   ta.addEventListener('input', grow);
+  ta.addEventListener('input', ()=> suggestForText());
   ta.addEventListener('keydown', ev=>{
     ev.stopPropagation();
     if(ev.key==='Escape'){ closeTextEditor(); }
     if(ev.key==='Enter' && (ev.ctrlKey||ev.metaKey)) closeTextEditor();
+    if((ev.key==='g' || ev.key==='G') && (ev.ctrlKey||ev.metaKey)){ ev.preventDefault(); if(!$('tpGraph').hidden) graphFromEditor(); }
   });
   ta.addEventListener('blur', closeTextEditor);
-  editing = {o, ta, existing:!!existing};
+  editing = {o, ta, existing:!!existing, keepText:false};
   if(existing){
     const p = page(), i = p.objects.indexOf(existing);
     pushUndo(); p.objects.splice(i,1); sceneDirty = true;
     editing.reinsert = i;
   }
-  setTimeout(()=>{ ta.focus(); ta.select(); },0);
+  setTimeout(()=>{ ta.focus(); ta.select(); suggestForText(); },0);
 }
 function closeTextEditor(){
-  if(!editing) return;
+  if(!editing) return null;
   const {o, ta} = editing, txt = ta.value.replace(/\s+$/,'');
   const ed = editing; editing = null;
   ta.remove();
+  hideTextSuggest();
+  let out = null;
   if(txt){
     o.text = txt;
     if(!ed.existing) pushUndo();
     const p = page();
     if(ed.reinsert!=null) p.objects.splice(ed.reinsert,0,o); else p.objects.push(o);
     sceneDirty = true;
+    out = o;
+    if(!ed.keepText && looksLikeLatex(txt)) formatTextAsMath(o);
   } else if(ed.existing){ sceneDirty = true; }
   syncHistoryButtons();
+  return out;
 }
+
+/* ---------- typed math: graph it, or format LaTeX ---------- */
+function looksLikeLatex(t){ return /\\[a-zA-Z]+|\$(?![\s\d])[^$\n]*[^\s$]\$|\$[a-zA-Z]\$|[\^_]\{/.test(t); }
+/* LaTeX → the graph box's plain syntax, for the common cases */
+function latexToPlain(tex){
+  let s = tex.replace(/\$/g, '');
+  s = s.replace(/\\left|\\right|\\displaystyle/g, '').replace(/\\[,;:! ]/g, ' ')
+       .replace(/\\cdot|\\times/g, '*').replace(/\\div/g, '/')
+       .replace(/\\leq?(?![a-z])/g, '<=').replace(/\\geq?(?![a-z])/g, '>=')
+       .replace(/\\pi(?![a-z])/g, 'pi').replace(/\\theta(?![a-z])/g, 'θ')
+       .replace(/\\(arcsin|arccos|arctan|sinh|cosh|tanh|sin|cos|tan|sec|csc|cot|ln|log|exp|min|max)(?![a-z])/g, '$1');
+  for(let k=0;k<30;k++){
+    const n = s.replace(/\\[dt]?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, (m, a, b)=> '(' + wrapIfNeeded(a) + '/' + wrapIfNeeded(b) + ')')
+               .replace(/\\sqrt\s*\[([^\]{}]*)\]\s*\{([^{}]*)\}/g, '(($2)^(1/($1)))')
+               .replace(/\\sqrt\s*\{([^{}]*)\}/g, 'sqrt($1)')
+               .replace(/\\operatorname\s*\{([a-z]+)\}/g, '$1');
+    if(n===s) break; s = n;
+  }
+  s = s.replace(/([\^_])\{([\w.]+)\}/g, '$1$2').replace(/\{/g, '(').replace(/\}/g, ')');
+  return /\\/.test(s) ? null : s.trim();
+}
+function wrapIfNeeded(a){ a = a.trim(); return /^(\d+(\.\d+)?|[a-zA-Zπθ])$/.test(a) ? a : '(' + a + ')'; }
+/* the lines a text or equation would graph as, or null if it isn't graphable math */
+function graphLinesFor(text){
+  let lines = text.split(/\n/).map(l=>l.trim()).filter(Boolean);
+  if(!lines.length) return null;
+  if(looksLikeLatex(text)){
+    lines = lines.flatMap(l=>l.split(/\\\\/)).map(latexToPlain);
+    if(lines.some(l=>!l)) return null;
+  }
+  if(!lines.some(l=>/[xyθt<>=]|theta/.test(l))) return null;
+  try{
+    const prog = parseGraphProgram(lines);
+    return !prog.errors.length && prog.items.length ? lines : null;
+  }catch(e){ return null; }
+}
+function textToTex(txt){
+  const conv = l=>{
+    if(/\$[^$]+\$/.test(l) && l.replace(/\$[^$]*\$/g, '').trim())
+      return l.split(/(\$[^$]+\$)/).filter(Boolean).map(p=> p.startsWith('$') && p.endsWith('$') ? p.replace(/^\$+|\$+$/g, '')
+        : `\\text{${p.replace(/[\\{}^~$]/g, '').replace(/([%#&_])/g, '\\$1')}}`).join('');
+    return l.replace(/^\$+|\$+$/g, '');
+  };
+  const lines = txt.split('\n').map(l=>l.trim()).filter(Boolean).map(conv);
+  return lines.length>1 ? '\\begin{gathered}' + lines.join('\\\\') + '\\end{gathered}' : (lines[0] || '');
+}
+async function formatTextAsMath(o){
+  let r;
+  try{ r = await texToSvg(textToTex(o.text)); }
+  catch(e){ toast(e.message==='offline' ? "Couldn't format the math offline, so it stays as text." : 'Kept as text: that LaTeX couldn\'t be drawn.'); return; }
+  if(r.error){ toast('Kept as text: check the LaTeX (' + r.error + ')'); return; }
+  const pg = S.pages.find(pp=>pp.objects.includes(o)); if(!pg) return;
+  const em = o.size*1.15;
+  const eq = {id:o.id, type:'equation', tool:'equation', tex:textToTex(o.text), svg:r.svg, vw:r.vw, vh:r.vh,
+              color:o.color, size:o.size, x:o.x, y:o.y, w:r.vw*em, h:r.vh*em, rot:o.rot||0};
+  pg.objects[pg.objects.indexOf(o)] = eq;
+  S.selection = S.selection.map(x=>x===o ? eq : x);
+  sceneDirty = true;
+}
+function graphLines(lines, below){
+  const s = view().s, w = Math.min(560, W*0.62)/s, h = w*0.64;
+  let x, y;
+  if(below){ const b = bbox(below); x = b.x; y = b.y + b.h + 16/s; }
+  else { const c = S2W(W/2, H/2); x = c.x-w/2; y = c.y-h/2; }
+  placeNew({id:uid(), type:'graph', tool:'graph', color:below ? below.color : S.color, size:3,
+            exprs:lines.slice(), x0:-10, x1:10, y0:null, y1:null, x, y, w, h, rot:0});
+}
+function graphFromEditor(){
+  if(!editing) return;
+  const lines = graphLinesFor(editing.ta.value);
+  if(!lines) return;
+  const o = closeTextEditor();
+  graphLines(lines, o);
+}
+let tpSeq = 0, tpTimer = 0;
+function hideTextSuggest(){ $('taPop').classList.remove('show'); tpSeq++; clearTimeout(tpTimer); }
+function placeTextSuggest(){
+  if(!editing) return;
+  const r = editing.ta.getBoundingClientRect(), pop = $('taPop'), pr = pop.getBoundingClientRect();
+  let top = r.bottom + 6;
+  if(top + pr.height > window.innerHeight - 8) top = Math.max(8, r.top - pr.height - 6);
+  pop.style.top = top + 'px';
+  pop.style.left = clamp(r.left, 10, Math.max(10, window.innerWidth - pr.width - 10)) + 'px';
+}
+function suggestForText(){
+  if(!editing) return;
+  const txt = editing.ta.value, graphable = !!graphLinesFor(txt);
+  const latex = !editing.keepText && looksLikeLatex(txt);
+  $('tpGraph').hidden = !graphable;
+  $('tpSep').hidden = !(graphable && latex);
+  if(!latex) $('tpLatex').classList.remove('show');
+  $('taPop').classList.toggle('show', graphable || latex);
+  placeTextSuggest();
+  clearTimeout(tpTimer);
+  if(latex){
+    const my = ++tpSeq;
+    tpTimer = setTimeout(async ()=>{
+      try{
+        if(!window.MathJax || !window.MathJax.tex2svg){ $('tpMath').textContent = ''; $('tpNote').textContent = 'Loading math…'; $('tpLatex').classList.add('show'); placeTextSuggest(); }
+        const r = await texToSvg(textToTex(txt));
+        if(my!==tpSeq || !editing) return;
+        $('tpMath').innerHTML = r.error ? '' : r.svg;
+        const el = $('tpMath').querySelector('svg');
+        if(el){ const k = Math.min(22, 44/r.vh, 280/r.vw); el.removeAttribute('height'); el.style.width = (r.vw*k) + 'px'; el.style.height = (r.vh*k) + 'px'; }
+        $('tpNote').textContent = r.error ? 'Check the LaTeX: ' + r.error : 'Formats as math when you click away';
+        $('tpLatex').classList.add('show');
+        placeTextSuggest();
+      }catch(e){
+        if(my!==tpSeq || !editing) return;
+        $('tpMath').textContent = ''; $('tpNote').textContent = e.message==='offline' ? 'Math formatting needs internet the first time' : e.message;
+        $('tpLatex').classList.add('show'); placeTextSuggest();
+      }
+    }, 180);
+  }
+}
+// clicks in the suggestion keep the text box focused, so it doesn't close under the pointer
+$('taPop').addEventListener('pointerdown', e=> e.preventDefault());
+$('taPop').addEventListener('mousedown', e=> e.preventDefault());
+$('tpGraph').onclick = ()=> graphFromEditor();
+$('tpKeep').onclick = ()=>{ if(editing){ editing.keepText = true; suggestForText(); editing.ta.focus(); } };
 
 /* ---------------- images ---------------- */
 function placeImage(src, at){
@@ -2976,6 +3142,7 @@ document.querySelectorAll('#menu .mi').forEach(b=>{
 });
 $('dupBtn').onclick   = ()=> duplicateSelection();
 $('editBtn').onclick  = ()=>{ if(S.selection.length===1) editObject(S.selection[0]); };
+$('graphBtn').onclick = ()=>{ const lines = selectionGraphLines(); if(lines) graphLines(lines, S.selection[0]); };
 $('mGraph').onclick = ()=>{ closePops(); openGraphDialog(null); };
 $('mEq').onclick    = ()=>{ closePops(); openEqDialog(null); };
 $('mRuler').onclick = ()=> toggleInst('ruler');
