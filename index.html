@@ -228,7 +228,8 @@
   .fld textarea{resize:vertical;font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:13.5px;line-height:1.5}
   .fld textarea:focus,.fld input:focus{box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.4)}
   .row4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}
-  .gprev{display:block;width:100%;height:200px;margin-top:12px;border-radius:10px;box-shadow:inset 0 0 0 1px var(--hair)}
+  .chips button.sym{min-width:30px;font-weight:600}
+  .gprev{display:block;width:100%;height:230px;margin-top:12px;border-radius:10px;box-shadow:inset 0 0 0 1px var(--hair)}
   .eqprev{min-height:92px;margin-top:12px;border-radius:10px;display:grid;place-items:center;padding:14px;overflow:auto;
     box-shadow:inset 0 0 0 1px var(--hair)}
   .eqprev .muted{color:var(--fg-dim);font-size:12.5px}
@@ -368,6 +369,7 @@
       <div class="row"><span>Edit a graph or equation</span><em>Double-click</em></div>
       <h3>Ink</h3>
       <div class="row"><span>Snap to a clean shape</span><em>Hold at the end</em></div>
+      <div class="row"><span>Resize it while snapped</span><em>Keep dragging</em></div>
       <div class="row"><span>Pick a color</span><em>1 – 9</em></div>
       <div class="row"><span>Thinner, thicker</span><em>[ ]</em></div>
     </div>
@@ -1180,6 +1182,15 @@ function onMove(e){
   if(drag.mode==='noop') return;
   if(drag.mode==='snapped'){
     const o = drag.o;
+    if(o.type==='rect' || o.type==='ellipse' || o.type==='triangle'){
+      // scale about the centre, by how far the pen has moved from it since the snap
+      const B = drag.base, cx = B.x+B.w/2, cy = B.y+B.h/2;
+      const d0 = Math.max(4/view().s, Math.hypot(drag.at.x-cx, drag.at.y-cy));
+      const k = Math.max(8/view().s/Math.max(B.w, B.h), Math.hypot(wp.x-cx, wp.y-cy)/d0);
+      o.w = B.w*k; o.h = B.h*k; o.x = cx-o.w/2; o.y = cy-o.h/2;
+      redrawLiveShape();
+      return;
+    }
     if(o.type==='line' || o.type==='arrow'){
       let dx = wp.x-o.x, dy = wp.y-o.y;
       const ang = Math.atan2(dy,dx), q = Math.round(ang/(Math.PI/4))*(Math.PI/4), L = Math.hypot(dx,dy);
@@ -1198,6 +1209,7 @@ function onMove(e){
   if(drag.mode==='draw'){
     const o = live; if(!o) return;
     armSnap(sp);
+    drag.lastWp = wp;
     const q = drag.guide ? guideProject(drag.guide, wp, o.size/2) : wp;
     const last = o.points[o.points.length-1];
     if(Math.hypot(q.x-last.x, q.y-last.y) * view().s < 1.1) return;
@@ -1768,21 +1780,35 @@ function trySnap(){
   const sh = recognizeShape(live.points);
   if(!sh) return;
   const o = Object.assign({id:uid(), tool:live.tool, color:live.color, size:live.size, fill:false, dash:false}, sh);
+  const at = drag.lastWp || live.points[live.points.length-1];
   beginLive(o); liveAlpha = 1; redrawLiveShape();
-  drag = {mode:'snapped', o};
+  drag = {mode:'snapped', o, base:cloneObj(o), at:{x:at.x, y:at.y}};
 }
 
 /* ================= math: expressions ================= */
 const UI_FONT = '"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif';
+function gammaFn(z){
+  if(z < 0.5) return Math.PI/(Math.sin(Math.PI*z)*gammaFn(1-z));
+  z -= 1;
+  const C = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313,
+    -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+  let a = C[0]; for(let i=1;i<9;i++) a += C[i]/(z+i);
+  const t = z + 7.5;
+  return Math.sqrt(TAU)*Math.pow(t, z+0.5)*Math.exp(-t)*a;
+}
 const MFN = {
   sin:Math.sin, cos:Math.cos, tan:Math.tan, asin:Math.asin, acos:Math.acos, atan:Math.atan,
   arcsin:Math.asin, arccos:Math.acos, arctan:Math.atan, sinh:Math.sinh, cosh:Math.cosh, tanh:Math.tanh,
   sec:x=>1/Math.cos(x), csc:x=>1/Math.sin(x), cot:x=>1/Math.tan(x),
   sqrt:Math.sqrt, cbrt:Math.cbrt, abs:Math.abs, exp:Math.exp, ln:Math.log, log:Math.log10,
-  floor:Math.floor, ceil:Math.ceil, round:Math.round, sign:Math.sign
+  floor:Math.floor, ceil:Math.ceil, round:Math.round, sign:Math.sign, gamma:gammaFn
 };
+const MFN2 = {min:Math.min, max:Math.max, mod:(a,b)=>((a%b)+b)%b, atan2:Math.atan2};
 const MCONST = {pi:Math.PI, 'π':Math.PI, e:Math.E, tau:TAU};
-const MNAMES = [...Object.keys(MFN), ...Object.keys(MCONST), 'x'].sort((a,b)=>b.length-a.length);
+const MVARS = ['x','y','t','r','θ'];
+const MNAMES = [...Object.keys(MFN), ...Object.keys(MFN2), ...Object.keys(MCONST), 'theta', ...MVARS]
+  .sort((a,b)=>b.length-a.length);
+const isFn = v => (v in MFN) || (v in MFN2);
 
 function mathTokens(src){
   src = src.replace(/[×·∙]/g,'*').replace(/÷/g,'/').replace(/[−–]/g,'-')
@@ -1797,35 +1823,38 @@ function mathTokens(src){
       if(!isFinite(v)) throw new Error(`"${s}" isn't a number`);
       t.push({k:'n', v}); i = j; continue;
     }
-    if(/[a-zA-Zπ]/.test(ch)){
-      let j = i; while(j<src.length && /[a-zA-Zπ]/.test(src[j])) j++;
-      const run = src.slice(i,j).toLowerCase();
+    if(/[a-zA-Zπθ]/.test(ch)){
+      let j = i; while(j<src.length && /[a-zA-Zπθ]/.test(src[j])) j++;
+      const run = src.slice(i,j);
       for(let p=0; p<run.length;){
-        const m = MNAMES.find(nm => run.startsWith(nm, p));
-        if(!m) throw new Error(`"${run.slice(p)}" isn't something I know. Use x as the variable.`);
-        t.push({k:'id', v:m}); p += m.length;
+        const low = run.toLowerCase();
+        const m = MNAMES.find(nm => low.startsWith(nm, p));
+        if(m){ t.push({k:'id', v: m==='theta' ? 'θ' : m}); p += m.length; }
+        else { t.push({k:'id', v:run[p]}); p += 1; }   // any other letter is a named constant
       }
       i = j; continue;
     }
-    if('+-*/^()|'.includes(ch)){ t.push({k:ch}); i++; continue; }
+    if('+-*/^()|,!'.includes(ch)){ t.push({k:ch}); i++; continue; }
     throw new Error(`"${ch}" can't be used here`);
   }
   return t;
 }
+/* compiles to f(E), where E holds x, y, t, θ, r and any constants */
 function compileExpr(src){
   const T = mathTokens(src); let i = 0;
+  const used = new Set();
   const peek = () => T[i], take = () => T[i++];
   const expect = k => {
     if(!T[i] || T[i].k!==k) throw new Error(k===')' ? 'A bracket is missing its closing )' : `Expected "${k}"`);
     i++;
   };
-  const isValue = t => t && (t.k==='n' || t.k==='(' || (t.k==='id' && !(t.v in MFN)));
+  const isValue = t => t && (t.k==='n' || t.k==='(' || (t.k==='id' && !isFn(t.v)));
   const startsPrimary = t => t && (t.k==='n' || t.k==='id' || t.k==='(');
   function expr(){
     let a = term();
     while(peek() && (peek().k==='+' || peek().k==='-')){
       const op = take().k, b = term(), l = a;
-      a = op==='+' ? x=>l(x)+b(x) : x=>l(x)-b(x);
+      a = op==='+' ? E=>l(E)+b(E) : E=>l(E)-b(E);
     }
     return a;
   }
@@ -1833,59 +1862,222 @@ function compileExpr(src){
     let a = unary();
     for(;;){
       const t = peek();
-      if(t && (t.k==='*' || t.k==='/')){ take(); const b = unary(), l = a; a = t.k==='*' ? x=>l(x)*b(x) : x=>l(x)/b(x); }
-      else if(startsPrimary(t)){ const b = power(), l = a; a = x=>l(x)*b(x); }
+      if(t && (t.k==='*' || t.k==='/')){ take(); const b = unary(), l = a; a = t.k==='*' ? E=>l(E)*b(E) : E=>l(E)/b(E); }
+      else if(startsPrimary(t)){ const b = power(), l = a; a = E=>l(E)*b(E); }
       else break;
     }
     return a;
   }
   function unary(){
     const t = peek();
-    if(t && t.k==='-'){ take(); const a = unary(); return x=>-a(x); }
+    if(t && t.k==='-'){ take(); const a = unary(); return E=>-a(E); }
     if(t && t.k==='+'){ take(); return unary(); }
     return power();
   }
   function power(){
-    const base = primary();
-    if(peek() && peek().k==='^'){ take(); const ex = unary(); return x=>Math.pow(base(x), ex(x)); }
+    let base = primary();
+    while(peek() && peek().k==='!'){ take(); const b = base; base = E=>gammaFn(b(E)+1); }
+    if(peek() && peek().k==='^'){ take(); const ex = unary(), b = base; return E=>Math.pow(b(E), ex(E)); }
     return base;
+  }
+  function args(){
+    const out = [expr()];
+    while(peek() && peek().k===','){ take(); out.push(expr()); }
+    expect(')');
+    return out;
   }
   function primary(){
     const t = take();
     if(!t) throw new Error('The equation ends too early');
     if(t.k==='n'){ const v = t.v; return ()=>v; }
     if(t.k==='('){ const a = expr(); expect(')'); return a; }
-    if(t.k==='|'){ const a = expr(); expect('|'); return x=>Math.abs(a(x)); }
+    if(t.k==='|'){ const a = expr(); expect('|'); return E=>Math.abs(a(E)); }
     if(t.k==='id'){
-      if(t.v==='x') return x=>x;
-      if(t.v in MCONST){ const v = MCONST[t.v]; return ()=>v; }
-      const f = MFN[t.v];
-      if(peek() && peek().k==='('){ take(); const a = expr(); expect(')'); return x=>f(a(x)); }
-      if(!isValue(peek())) throw new Error(`${t.v} needs something after it, like ${t.v}(x)`);
-      // "sin 2x" means sin(2x): take the run of values that follow
-      let a = power();
-      while(isValue(peek())){ const b = power(), l = a; a = x=>l(x)*b(x); }
-      return x=>f(a(x));
+      const v = t.v;
+      if(v in MCONST){ const c = MCONST[v]; return ()=>c; }
+      if(isFn(v)){
+        if(peek() && peek().k==='('){
+          take(); const A = args();
+          if(A.length===2 && v in MFN2){ const f = MFN2[v], a = A[0], b = A[1]; return E=>f(a(E), b(E)); }
+          if(A.length===1 && v in MFN){ const f = MFN[v], a = A[0]; return E=>f(a(E)); }
+          throw new Error(v in MFN2 ? `${v} needs two numbers, like ${v}(x, 2)` : `${v} takes one thing, like ${v}(x)`);
+        }
+        if(!(v in MFN)) throw new Error(`${v} needs brackets, like ${v}(x, 2)`);
+        if(!isValue(peek())) throw new Error(`${v} needs something after it, like ${v}(x)`);
+        const f = MFN[v];
+        let a = power();                       // "sin 2x" means sin(2x)
+        while(isValue(peek())){ const b = power(), l = a; a = E=>l(E)*b(E); }
+        return E=>f(a(E));
+      }
+      used.add(v);
+      return E=>E[v];
     }
-    throw new Error(`"${t.k}" is in an odd place`);
+    throw new Error(t.k===',' ? 'A comma only goes inside brackets, like (2, 3)' : `"${t.k}" is in an odd place`);
   }
   const f = expr();
   if(i < T.length){
     const t = T[i];
     throw new Error(t.k===')' ? 'There\'s an extra )' : `Something's off near "${t.v ?? t.k}"`);
   }
+  f.used = used;
   return f;
 }
+
+/* ================= graphs: statements ================= */
+const RELS = ['<=','>=','<','>','='];
+function normRel(s){ return s.replace(/≤/g,'<=').replace(/≥/g,'>='); }
+function splitTop(s, ch){
+  const out = []; let d = 0, last = 0;
+  for(let i=0;i<s.length;i++){
+    const c = s[i];
+    if(c==='(') d++; else if(c===')') d--;
+    else if(c===ch && d===0){ out.push(s.slice(last,i)); last = i+1; }
+  }
+  out.push(s.slice(last));
+  return out.map(p=>p.trim());
+}
+function splitRels(s){
+  const parts = [], ops = []; let d = 0, last = 0;
+  for(let i=0;i<s.length;i++){
+    const c = s[i];
+    if(c==='(') { d++; continue; } if(c===')'){ d--; continue; }
+    if(d) continue;
+    if(c==='<' || c==='>' || c==='='){
+      const op = (c!=='=' && s[i+1]==='=') ? c+'=' : c;
+      parts.push(s.slice(last,i).trim()); ops.push(op); last = i + op.length; i += op.length-1;
+    }
+  }
+  parts.push(s.slice(last).trim());
+  return {parts, ops};
+}
+const cmp = {'<':(a,b)=>a<b, '>':(a,b)=>a>b, '<=':(a,b)=>a<=b, '>=':(a,b)=>a>=b, '=':(a,b)=>Math.abs(a-b)<1e-9};
+function unwrap(s){
+  if(!(s.startsWith('(') && s.endsWith(')'))) return null;
+  let d = 0;
+  for(let i=0;i<s.length;i++){ if(s[i]==='(') d++; else if(s[i]===')'){ d--; if(d===0 && i<s.length-1) return null; } }
+  return s.slice(1,-1);
+}
+function checkVars(f, allowed, consts){
+  for(const v of f.used){
+    if(allowed.includes(v) || v in consts) continue;
+    if(v==='r' || v==='θ') throw new Error(`${v} only works in polar equations, like r = 2cos(θ)`);
+    if(v==='t') throw new Error('t only works in curves like (cos t, sin t)');
+    if(v==='x' || v==='y') throw new Error(allowed.includes('θ') ? `Polar equations use θ, not ${v}` : allowed.includes('t') ? `Curves like (cos t, sin t) use t, not ${v}` : `${v} can't be used in this line`);
+    throw new Error(`${v} isn't defined. Add a line like ${v} = 1 to use it.`);
+  }
+}
+/* one line of the graph box, e.g. "x^2 + y^2 = 25", "y = x^2 {0 < x < 3}", "r = 2sin(3θ)" */
+function parseStatement(raw, consts){
+  let s = normRel(raw.trim());
+  const restr = [];
+  for(let m; (m = s.match(/\{([^{}]*)\}\s*$/)); ){ restr.unshift(m[1]); s = s.slice(0, m.index).trim(); }
+  if(!s) throw new Error('Nothing to graph on this line');
+  // restrictions: "0 < x < 3", "x > 0", several separated by commas
+  const conds = [], ranges = {};
+  for(const r of restr.flatMap(r=>splitTop(r, ',')).filter(Boolean)){
+    const {parts, ops} = splitRels(r);
+    if(!ops.length) throw new Error('Limits go in curly brackets like {0 < x < 3}');
+    const fs = parts.map(p=>{ if(!p) throw new Error('Something is missing in the {limits}'); return compileExpr(p); });
+    fs.forEach(f=>checkVars(f, MVARS, consts));
+    if(parts.length===3 && (parts[1]==='t' || parts[1]==='θ' || parts[1]==='theta') && ops[0][0]===ops[1][0] && ops[0][0]==='<'){
+      ranges[parts[1]==='t' ? 't' : 'θ'] = [fs[0](consts), fs[2](consts)];
+      continue;
+    }
+    conds.push(E=>{ for(let k=0;k<ops.length;k++) if(!cmp[ops[k]](fs[k](E), fs[k+1](E))) return false; return true; });
+  }
+  const cond = conds.length ? (E=>{ for(const c of conds) if(!c(E)) return false; return true; }) : null;
+  const base = {label: raw.trim(), cond};
+
+  const {parts, ops} = splitRels(s);
+  if(ops.length > 1) throw new Error('Use one = or < per line. Limits go in {curly brackets}.');
+
+  if(!ops.length){
+    const inner = unwrap(s), pieces = splitTop(s, ',');
+    if(inner!=null && splitTop(inner, ',').length > 2) throw new Error('Points and curves have two parts, like (2, 3) or (cos t, sin t)');
+    const pair = inner!=null && splitTop(inner, ',').length===2;
+    if(pair){
+      const [a,b] = splitTop(inner, ',').map(compileExpr);
+      if(a.used.has('t') || b.used.has('t')){
+        checkVars(a, ['t'], consts); checkVars(b, ['t'], consts);
+        return {...base, kind:'param', fx:a, fy:b, range: ranges.t || [0, TAU]};
+      }
+    }
+    if(pair || pieces.length>1){
+      const pts = pieces.map(p=>{
+        const q = unwrap(p), c = q==null ? [] : splitTop(q, ',');
+        if(c.length!==2) throw new Error('Points look like (2, 3)');
+        return c.map(x=>{ const f = compileExpr(x); checkVars(f, [], consts); return f(consts); });
+      });
+      return {...base, kind:'points', pts};
+    }
+    const f = compileExpr(s); checkVars(f, ['x'], consts);
+    return {...base, kind:'fx', f, label:'y = ' + s};
+  }
+
+  const [L, R] = parts, op = ops[0];
+  if(!L || !R) throw new Error(`Something is missing on one side of the ${op}`);
+  if(op==='='){
+    const lf = compileExpr(L), rf = compileExpr(R);
+    if(/^f\s*\(\s*x\s*\)$/.test(L) || /^y$/.test(L) && !rf.used.has('y')){ checkVars(rf, ['x'], consts); return {...base, kind:'fx', f:rf}; }
+    if(R==='y' && !lf.used.has('y')){ checkVars(lf, ['x'], consts); return {...base, kind:'fx', f:lf}; }
+    if(L==='x' && !rf.used.has('x')){ checkVars(rf, ['y'], consts); return {...base, kind:'fy', f:rf}; }
+    if(R==='x' && !lf.used.has('x')){ checkVars(lf, ['y'], consts); return {...base, kind:'fy', f:lf}; }
+    if(L==='r' && !rf.used.has('r')){ checkVars(rf, ['θ'], consts); return {...base, kind:'polar', f:rf, range: ranges['θ'] || [0, TAU]}; }
+    checkVars(lf, ['x','y'], consts); checkVars(rf, ['x','y'], consts);
+    return {...base, kind:'implicit', F:E=>lf(E)-rf(E)};
+  }
+  const lf = compileExpr(L), rf = compileExpr(R);
+  checkVars(lf, ['x','y'], consts); checkVars(rf, ['x','y'], consts);
+  return {...base, kind:'region', F:E=>lf(E)-rf(E), op};
+}
+/* the whole box: constants first ("a = 2"), then everything that draws */
+function parseGraphProgram(lines){
+  const consts = {}, errors = [], items = [], constLines = [];
+  const isConst = l => { const m = normRel(l).match(/^([a-zA-Z])\s*=\s*([^<>={}]+)$/); return m && !'xyrte'.includes(m[1]) ? m : null; };
+  const pending = [];
+  lines.forEach((l,idx)=>{ const m = isConst(l); if(m) pending.push({idx, name:m[1], src:m[2], line:l}); });
+  for(let progress=true; progress && pending.length;){
+    progress = false;
+    for(let k=0;k<pending.length;k++){
+      const p = pending[k];
+      try{
+        const f = compileExpr(p.src);
+        if([...f.used].every(v=>v in consts)){
+          const v = f(consts);
+          if(!isFinite(v)) throw new Error(`${p.name} doesn't come out to a number`);
+          consts[p.name] = v; constLines.push({idx:p.idx, label:`${p.name} = ${+v.toPrecision(6)}`});
+          pending.splice(k,1); k--; progress = true;
+        }
+      }catch(e){ errors.push({idx:p.idx, msg:e.message}); pending.splice(k,1); k--; }
+    }
+  }
+  const constIdx = new Set(constLines.map(c=>c.idx));
+  pending.forEach(p=>{
+    constIdx.add(p.idx);
+    let msg = `${p.name} uses something that isn't defined`;
+    try{ const u = [...compileExpr(p.src).used]; const xy = u.find(v=>'xyrtθ'.includes(v));
+      if(xy) msg = `${p.name} = … is a constant, so it can't use ${xy}. To draw a curve, start the line with y =`;
+      else { const miss = u.find(v=>!(v in consts)); if(miss) msg = `${miss} isn't defined. Add a line like ${miss} = 1 to use it.`; }
+    }catch(e){}
+    errors.push({idx:p.idx, msg});
+  });
+  errors.forEach(e=>constIdx.add(e.idx));
+  lines.forEach((l,idx)=>{
+    if(constIdx.has(idx)) return;
+    try{ items.push({idx, ...parseStatement(l, consts)}); }catch(e){ errors.push({idx, msg:e.message}); }
+  });
+  errors.sort((a,b)=>a.idx-b.idx);
+  items.sort((a,b)=>a.idx-b.idx);
+  return {consts, items, errors, constLines};
+}
+/* old single-line check, still handy for tests and the parser */
 function parseGraphLine(line){
-  const src = line.trim();
-  let s = src.replace(/^(y|f\s*\(\s*x\s*\))\s*=\s*/i, '');
-  if(s.includes('=')) throw new Error('Write it as y = something with x');
-  if(!s) throw new Error('Nothing after the =');
-  const f = compileExpr(s);
-  return {f, label: /^(y|f\s*\(\s*x\s*\))\s*=/i.test(src) ? src.replace(/\s*=\s*/, ' = ') : 'y = ' + s};
+  const r = parseGraphProgram([line]);
+  if(r.errors.length) throw new Error(r.errors[0].msg);
+  return r.items[0];
 }
 
-/* ================= graphs ================= */
+/* ================= graphs: geometry, in math units ================= */
 const graphCache = new WeakMap();
 function niceStep(range, target){
   const raw = range/Math.max(1,target), p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw/p;
@@ -1897,26 +2089,113 @@ function fmtNum(v, step){
   if(s.includes('.')) s = s.replace(/0+$/,'').replace(/\.$/,'');
   return s==='-0' ? '0' : s;
 }
+function samplePath(n, at, jump){
+  const out = []; let prev = null;
+  for(let i=0;i<=n;i++){
+    const p = at(i/n);
+    if(!p || !isFinite(p[0]) || !isFinite(p[1])){ if(prev) out.push(NaN, NaN); prev = null; continue; }
+    if(prev && Math.hypot(p[0]-prev[0], p[1]-prev[1]) > jump) out.push(NaN, NaN);
+    out.push(p[0], p[1]); prev = p;
+  }
+  return out;
+}
+/* zero contour of F on a grid (marching squares), dropping false edges at asymptotes */
+function contour(F, E, x0, x1, y0, y1, NX, NY, cond){
+  const dx = (x1-x0)/NX, dy = (y1-y0)/NY, W1 = NX+1, V = new Float64Array(W1*(NY+1));
+  for(let j=0;j<=NY;j++) for(let i=0;i<=NX;i++){ E.x = x0+i*dx; E.y = y0+j*dy; V[j*W1+i] = F(E); }
+  const segs = [];
+  const cross = (xa,ya,va,xb,yb,vb)=>{
+    if(!isFinite(va) || !isFinite(vb) || (va<0)===(vb<0)) return null;
+    const t = va/(va-vb), px = xa+(xb-xa)*t, py = ya+(yb-ya)*t;
+    E.x = px; E.y = py;
+    const fv = F(E);
+    return Math.abs(fv) <= 0.3*(Math.abs(va)+Math.abs(vb)) + 1e-12 ? [px,py] : null;
+  };
+  for(let j=0;j<NY;j++) for(let i=0;i<NX;i++){
+    const xa = x0+i*dx, ya = y0+j*dy, xb = xa+dx, yb = ya+dy;
+    const v0 = V[j*W1+i], v1 = V[j*W1+i+1], v2 = V[(j+1)*W1+i+1], v3 = V[(j+1)*W1+i];
+    const e = [cross(xa,ya,v0, xb,ya,v1), cross(xb,ya,v1, xb,yb,v2), cross(xb,yb,v2, xa,yb,v3), cross(xa,yb,v3, xa,ya,v0)];
+    const hits = e.filter(Boolean);
+    let pairs;
+    if(hits.length===2) pairs = [hits];
+    else if(hits.length===4){
+      E.x = xa+dx/2; E.y = ya+dy/2;
+      const vc = F(E);
+      pairs = (vc<0)===(v0<0) ? [[e[0],e[1]],[e[2],e[3]]] : [[e[3],e[0]],[e[1],e[2]]];
+    } else continue;
+    for(const [p,q] of pairs){
+      if(cond){ E.x = (p[0]+q[0])/2; E.y = (p[1]+q[1])/2; if(!cond(E)) continue; }
+      segs.push(p[0],p[1],q[0],q[1]);
+    }
+  }
+  return segs;
+}
 function graphData(o){
-  const key = [o.exprs.join('\n'), o.x0, o.x1, o.y0, o.y1].join('|');
+  const aspect = Math.abs(o.h)/Math.max(1, Math.abs(o.w));
+  const auto = !(o.y0!=null && o.y1!=null && o.y1>o.y0);
+  const key = [o.exprs.join('\n'), o.x0, o.x1, o.y0, o.y1, auto ? aspect.toFixed(2) : ''].join('|');
   const hit = graphCache.get(o);
   if(hit && hit.key===key) return hit;
-  const fns = [];
-  for(const line of o.exprs){ try{ fns.push(parseGraphLine(line)); }catch(e){} }
+
+  const prog = parseGraphProgram(o.exprs);
+  const X0 = o.x0, X1 = o.x1, E = Object.assign({}, prog.consts);
   let y0 = o.y0, y1 = o.y1;
-  if(y0==null || y1==null || !(y1>y0)){
-    const vals = [];
-    for(const fn of fns) for(let i=0;i<=300;i++){ const v = fn.f(o.x0+(o.x1-o.x0)*i/300); if(isFinite(v)) vals.push(v); }
-    vals.sort((a,b)=>a-b);
-    if(vals.length){
-      let lo = vals[Math.floor(vals.length*0.03)], hi = vals[Math.ceil(vals.length*0.97)-1];
-      if(hi-lo < 1e-9){ lo -= 1; hi += 1; }
-      const pad = (hi-lo)*0.12; y0 = lo-pad; y1 = hi+pad;
-      if(y0 > 0 && y0 < (y1-y0)*0.4) y0 = -(y1-y0)*0.06;   // keep the x-axis in view when it's close
-      if(y1 < 0 && -y1 < (y1-y0)*0.4) y1 = (y1-y0)*0.06;
-    } else { y0 = -10; y1 = 10; }
+  if(auto){
+    const drawn = prog.items;
+    if(drawn.length && drawn.every(it=>it.kind==='fx')){
+      const vals = [];
+      for(const it of drawn) for(let i=0;i<=300;i++){
+        E.x = X0+(X1-X0)*i/300;
+        if(it.cond && !it.cond(E)) continue;
+        const v = it.f(E); if(isFinite(v)) vals.push(v);
+      }
+      vals.sort((a,b)=>a-b);
+      if(vals.length){
+        let lo = vals[Math.floor(vals.length*0.03)], hi = vals[Math.ceil(vals.length*0.97)-1];
+        if(hi-lo < 1e-9){ lo -= 1; hi += 1; }
+        const pad = (hi-lo)*0.12; y0 = lo-pad; y1 = hi+pad;
+        if(y0 > 0 && y0 < (y1-y0)*0.4) y0 = -(y1-y0)*0.06;
+        if(y1 < 0 && -y1 < (y1-y0)*0.4) y1 = (y1-y0)*0.06;
+      }
+    }
+    if(y0==null || y1==null || !(y1>y0)){       // same scale on both axes, so circles stay round
+      const span = (X1-X0)*aspect, mid = 0;
+      y0 = mid - span/2; y1 = mid + span/2;
+    }
   }
-  const out = {key, fns, y0, y1};
+  const spanX = X1-X0, spanY = y1-y0, jump = Math.max(spanX, spanY)*0.6;
+  const NX = 220, NY = clamp(Math.round(NX*aspect), 40, 400);
+  const out = {key, y0, y1, items:[], constLines:prog.constLines, errors:prog.errors};
+  for(const it of prog.items){
+    const g = {kind:it.kind, label:it.label};
+    const ok = it.cond ? (()=>it.cond(E)) : (()=>true);
+    if(it.kind==='fx'){
+      g.path = samplePath(1000, u=>{ E.x = X0+spanX*u; E.y = NaN; const v = it.f(E); E.y = v; return ok() ? [E.x, v] : null; }, spanY*1.2);
+    } else if(it.kind==='fy'){
+      g.path = samplePath(1000, u=>{ E.y = y0+spanY*u; E.x = NaN; const v = it.f(E); E.x = v; return ok() ? [v, E.y] : null; }, spanX*1.2);
+    } else if(it.kind==='polar'){
+      const [a,b] = it.range;
+      g.path = samplePath(1600, u=>{ const th = a+(b-a)*u; E['θ'] = th; const r = it.f(E); E.x = r*Math.cos(th); E.y = r*Math.sin(th); E.r = r; return ok() ? [E.x, E.y] : null; }, jump);
+    } else if(it.kind==='param'){
+      const [a,b] = it.range;
+      g.path = samplePath(1600, u=>{ E.t = a+(b-a)*u; const x = it.fx(E), y = it.fy(E); E.x = x; E.y = y; return ok() ? [x,y] : null; }, jump);
+    } else if(it.kind==='implicit'){
+      g.segs = contour(it.F, E, X0, X1, y0, y1, NX, NY, it.cond);
+    } else if(it.kind==='region'){
+      const test = cmp[it.op], GX = 160, GY = clamp(Math.round(GX*aspect), 30, 300), cells = new Uint8Array(GX*GY);
+      for(let j=0;j<GY;j++) for(let i=0;i<GX;i++){
+        E.x = X0+(i+.5)*spanX/GX; E.y = y0+(j+.5)*spanY/GY;
+        const v = it.F(E);
+        cells[j*GX+i] = isFinite(v) && test(v, 0) && ok() ? 1 : 0;
+      }
+      g.cells = cells; g.GX = GX; g.GY = GY;
+      g.segs = contour(it.F, E, X0, X1, y0, y1, NX, NY, it.cond);
+      g.dashed = it.op==='<' || it.op==='>';
+    } else if(it.kind==='points'){
+      g.pts = it.pts;
+    }
+    out.items.push(g);
+  }
   graphCache.set(o, out);
   return out;
 }
@@ -1928,7 +2207,7 @@ function graphColor(o, k){
 function drawGraph(c, o){
   const b = bbox(o), gd = graphData(o), th = THEMES[S.theme];
   const ink = th.dark ? '255,255,255' : '22,26,32';
-  const fs = clamp(Math.min(b.w, b.h)/20, 9, 26);
+  const fs = clamp(Math.min(b.w, b.h)/24, 9, 20);
   const X0 = o.x0, X1 = o.x1, Y0 = gd.y0, Y1 = gd.y1;
   const X = v => b.x + (v-X0)/(X1-X0)*b.w, Y = v => b.y + b.h - (v-Y0)/(Y1-Y0)*b.h;
   c.save();
@@ -1968,36 +2247,67 @@ function drawGraph(c, o){
     c.fillText(fmtNum(v,sy), lx, py);
   }
 
-  const lw = Math.max(1.5, (o.size||3)*0.8), lim = (Y1-Y0)*4;
-  const n = clamp(Math.round(b.w*1.2), 120, 1600);
+  const lw = Math.max(1.5, (o.size||3)*0.8);
   c.lineWidth = lw; c.lineJoin = 'round'; c.lineCap = 'round';
-  gd.fns.forEach((fn,k)=>{
-    c.strokeStyle = graphColor(o,k); c.beginPath();
-    let pen = false, prevY = 0;
-    for(let i=0;i<=n;i++){
-      const xv = X0 + (X1-X0)*i/n, yv = fn.f(xv);
-      if(!isFinite(yv) || yv > Y1+lim || yv < Y0-lim){ pen = false; continue; }
-      const px = X(xv), py = Y(yv);
-      if(pen && Math.abs(py-prevY) > b.h*1.2) pen = false;
-      if(pen) c.lineTo(px,py); else c.moveTo(px,py);
-      pen = true; prevY = py;
+  gd.items.forEach((g,k)=>{
+    const col = graphColor(o,k);
+    c.strokeStyle = col; c.fillStyle = col;
+    if(g.cells){
+      // one path, one fill: overlapping cell edges can't double up into stripes
+      c.save(); c.globalAlpha = 0.2; c.beginPath();
+      const cw = b.w/g.GX, ch = b.h/g.GY;
+      for(let j=0;j<g.GY;j++){
+        let run = -1;
+        for(let i=0;i<=g.GX;i++){
+          const on = i<g.GX && g.cells[j*g.GX+i];
+          if(on && run<0) run = i;
+          if(!on && run>=0){ c.rect(b.x+run*cw, b.y+b.h-(j+1)*ch, (i-run)*cw+0.6, ch+0.6); run = -1; }
+        }
+      }
+      c.fill('nonzero'); c.restore();
     }
-    c.stroke();
+    if(g.path){
+      c.beginPath(); let pen = false;
+      for(let i=0;i<g.path.length;i+=2){
+        const x = g.path[i], y = g.path[i+1];
+        if(isNaN(x)){ pen = false; continue; }
+        if(pen) c.lineTo(X(x), Y(y)); else c.moveTo(X(x), Y(y));
+        pen = true;
+      }
+      c.stroke();
+    }
+    if(g.segs){
+      c.save();
+      if(g.dashed) c.setLineDash([lw*3, lw*2.5]);
+      c.beginPath();
+      for(let i=0;i<g.segs.length;i+=4){ c.moveTo(X(g.segs[i]), Y(g.segs[i+1])); c.lineTo(X(g.segs[i+2]), Y(g.segs[i+3])); }
+      c.stroke();
+      c.restore();
+    }
+    if(g.pts){
+      c.font = `500 ${fs*0.9}px ${UI_FONT}`; c.textAlign = 'left'; c.textBaseline = 'bottom';
+      for(const [px,py] of g.pts){
+        c.beginPath(); c.arc(X(px), Y(py), lw*2.2, 0, TAU); c.fill();
+        c.fillText(`(${+px.toPrecision(4)}, ${+py.toPrecision(4)})`, X(px)+lw*3, Y(py)-lw*1.5);
+      }
+    }
   });
   c.restore();
 
   // key, outlined in the board color so it stays readable over the curves
-  c.font = `600 ${fs}px ${UI_FONT}`; c.textAlign = 'left'; c.textBaseline = 'middle';
+  const kf = fs*0.9;
+  c.font = `600 ${kf}px ${UI_FONT}`; c.textAlign = 'left'; c.textBaseline = 'middle';
   let ty = b.y + fs*1.05;
-  gd.fns.forEach((fn,k)=>{
-    const tx = b.x + fs*0.8, col = graphColor(o,k);
-    c.strokeStyle = col; c.lineWidth = lw;
-    c.beginPath(); c.moveTo(tx,ty); c.lineTo(tx+fs*1.1,ty); c.stroke();
+  const keyLine = (text, col, swatch)=>{
+    const tx = b.x + fs*0.8;
+    if(swatch){ c.strokeStyle = col; c.lineWidth = lw; c.beginPath(); c.moveTo(tx,ty); c.lineTo(tx+fs*1.1,ty); c.stroke(); }
     c.lineWidth = fs*0.32; c.strokeStyle = th.bg; c.lineJoin = 'round';
-    c.strokeText(fn.label, tx+fs*1.6, ty);
-    c.fillStyle = col; c.fillText(fn.label, tx+fs*1.6, ty);
+    c.strokeText(text, tx+fs*1.6, ty);
+    c.fillStyle = col; c.fillText(text, tx+fs*1.6, ty);
     ty += fs*1.4;
-  });
+  };
+  gd.items.forEach((g,k)=> keyLine(g.label, graphColor(o,k), true));
+  gd.constLines.forEach(cl=> keyLine(cl.label, `rgba(${ink},.6)`, false));
   c.restore();
 }
 
@@ -2290,9 +2600,15 @@ function placeNew(o){
   setTool('select'); S.selection = [o];
 }
 
+const GRAPH_EXAMPLES = [
+  ['Circle', 'x^2 + y^2 = 16'], ['On an interval', 'y = x^2 {0 < x < 3}'], ['Sideways', 'x = y^2 - 4'],
+  ['Polar', 'r = 5cos(3θ)'], ['Parametric', '(6cos t, 3sin(2t))'], ['Shaded region', 'y < sin(x) + 1'],
+  ['Point', '(2, 4)'], ['Constant', 'a = 2\ny = a x^2']
+];
 const GRAPH_HTML = `
+  <div class="chips" id="gChips"></div>
   <label class="fld"><span>Equations, one per line</span>
-    <textarea id="gExpr" rows="3" spellcheck="false" autocomplete="off" placeholder="y = sin(x)&#10;y = x^2 / 4"></textarea></label>
+    <textarea id="gExpr" rows="4" spellcheck="false" autocomplete="off" placeholder="y = sin(x)&#10;x^2 + y^2 = 25"></textarea></label>
   <div class="row4">
     <label class="fld"><span>x from</span><input id="gX0" type="number" step="any"></label>
     <label class="fld"><span>x to</span><input id="gX1" type="number" step="any"></label>
@@ -2300,12 +2616,13 @@ const GRAPH_HTML = `
     <label class="fld"><span>y to</span><input id="gY1" type="number" step="any" placeholder="Auto"></label>
   </div>
   <canvas id="gPrev" class="gprev"></canvas>
-  <p class="note">Use x as the variable. sin, cos, tan, sqrt, abs, ln, log, pi and e all work, ^ is a power, and 2x means 2 times x. Leave y empty to fit the curve.</p>`;
+  <p class="note">Anything in x and y works: y = …, x = …, x^2 + y^2 = 25, or &lt; and &gt; to shade a region. Polar is r = … with θ, and curves are (x, y) using t. Add {0 &lt; x &lt; 3} to draw only part of a curve, and a line like a = 2 to define a constant. Leave y empty for equal scales on both axes.</p>`;
 
 function readGraphForm(){
   const lines = $('gExpr').value.split(/\n|;/).map(s=>s.trim()).filter(Boolean);
-  const valid = []; let error = null;
-  lines.forEach((l,i)=>{ try{ parseGraphLine(l); valid.push(l); }catch(e){ if(!error) error = (lines.length>1 ? `Line ${i+1}: ` : '') + e.message; } });
+  const prog = parseGraphProgram(lines), bad = new Set(prog.errors.map(e=>e.idx));
+  const valid = lines.filter((_,i)=>!bad.has(i));
+  let error = prog.errors.length ? (lines.length>1 ? `Line ${prog.errors[0].idx+1}: ` : '') + prog.errors[0].msg : null;
   const num = id => { const s = $(id).value.trim(); return s==='' ? null : Number(s); };
   let x0 = num('gX0'), x1 = num('gX1'), y0 = num('gY0'), y1 = num('gY1');
   if(x0==null) x0 = -10; if(x1==null) x1 = 10;
@@ -2334,10 +2651,28 @@ function openGraphDialog(existing){
   $('gY1').value = existing && existing.y1!=null ? existing.y1 : '';
   const update = ()=>{ const r = readGraphForm(); $('dlgMsg').textContent = r.error || ''; $('dlgOk').disabled = !r.ok; drawGraphPreview(r); };
   ['gExpr','gX0','gX1','gY0','gY1'].forEach(id=> $(id).addEventListener('input', update));
+  const ta = $('gExpr');
+  const insertAtCaret = txt=>{ ta.setRangeText(txt, ta.selectionStart, ta.selectionEnd, 'end'); ta.focus(); update(); };
+  GRAPH_EXAMPLES.forEach(([label, line])=>{
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = label; b.title = line;
+    b.onclick = ()=>{
+      const v = ta.value.replace(/\s+$/,'');
+      ta.value = v ? v + '\n' + line : line;
+      ta.selectionStart = ta.selectionEnd = ta.value.length; ta.focus(); update();
+    };
+    $('gChips').appendChild(b);
+  });
+  [['θ','θ'], ['π','π'], ['√','sqrt('], ['≤','<='], ['≥','>=']].forEach(([label, txt])=>{
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = label; b.className = 'sym';
+    b.onclick = ()=> insertAtCaret(txt);
+    $('gChips').appendChild(b);
+  });
   update();
   dlg = {ok(){
     const r = readGraphForm(); if(!r.ok) return;
-    const fields = {exprs:r.exprs, x0:r.x0, x1:r.x1, y0:r.y0, y1:r.y1};
+    const fields = {exprs:r.exprs.slice(), x0:r.x0, x1:r.x1, y0:r.y0, y1:r.y1};
     if(existing && page().objects.includes(existing)){
       pushUndo(); Object.assign(beginEdit([existing])[0], fields); sceneDirty = true;
     } else {
