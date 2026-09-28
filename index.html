@@ -356,6 +356,7 @@
   <button class="mi" id="openBtn"><span>Open a board</span><em>Ctrl O</em></button>
   <button class="mi" id="saveBtn"><span>Save all boards</span><em>Ctrl S</em></button>
   <button class="mi" id="pngBtn"><span>Export as PNG</span><em>Ctrl E</em></button>
+  <button class="mi" id="svgBtn"><span>Export as SVG</span><em>Ctrl Shift E</em></button>
   <button class="mi" id="recBtn"><span>Record video</span><em>Shift R</em></button>
   <i class="msep"></i>
   <button class="mi" id="clearBtn"><span>Erase this board</span></button>
@@ -411,13 +412,14 @@
       <div class="row"><span>Switch boards</span><em>PgUp, PgDn</em></div>
       <div class="row"><span>Surface, guides</span><em>Shift B, Shift G</em></div>
       <div class="row"><span>Save, open, PNG</span><em>Ctrl S, O, E</em></div>
+      <div class="row"><span>Export as SVG</span><em>Ctrl Shift E</em></div>
       <div class="row"><span>Record video</span><em>Shift R</em></div>
       <h3>Touch</h3>
       <div class="row"><span>Pan and zoom</span><em>Two fingers</em></div>
       <div class="row"><span>Edit text</span><em>Double-tap</em></div>
       <h3>View</h3>
       <div class="row"><span>Pan</span><em>Space-drag, scroll</em></div>
-      <div class="row"><span>Zoom</span><em>Ctrl scroll</em></div>
+      <div class="row"><span>Zoom, with no limit</span><em>Ctrl scroll, pinch</em></div>
       <div class="row"><span>Reset the view</span><em>Ctrl 0</em></div>
     </div>
   </div>
@@ -512,7 +514,7 @@ const S = {
   color:THEMES.chalkboard.palette[0], size:5, fill:false, dash:false,
   pages:[], page:0, selection:[], uiHidden:false
 };
-function newPage(){ return {objects:[], undo:[], redo:[], view:{x:0,y:0,s:1}}; }
+function newPage(){ return {objects:[], undo:[], redo:[], view:{x:0,y:0,s:1}, base:{x:{m:0n,e:0}, y:{m:0n,e:0}, z:0}}; }
 S.pages.push(newPage());
 const page = () => S.pages[S.page];
 const view = () => page().view;
@@ -578,13 +580,13 @@ function hit(o, p, tol){
   return q.x>=b.x-tol && q.x<=b.x+b.w+tol && q.y>=b.y-tol && q.y<=b.y+b.h+tol;
 }
 function textMetrics(o){
-  sctx.save(); sctx.font = fontFor(o);
+  sctx.save(); sctx.font = fontFor(o, 100);
   const lines = o.text.split('\n');
   let w = 0; for(const l of lines) w = Math.max(w, sctx.measureText(l||' ').width);
   sctx.restore();
-  return {w:w+8, h:lines.length*o.size*1.25+6, lines};
+  return {w:w*o.size/100 + o.size*0.29, h:lines.length*o.size*1.25 + o.size*0.21, lines};
 }
-const fontFor = o => `${o.weight||500} ${o.size}px "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif`;
+const fontFor = (o, px) => `${o.weight||500} ${px ?? o.size}px "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif`;
 
 /* ---------------- history ---------------- */
 function pushUndo(){
@@ -631,7 +633,7 @@ function beginEdit(list){
 
 /* ---------------- canvas sizing ---------------- */
 function resize(){
-  dpr = Math.min(window.devicePixelRatio||1, 2.5);
+  dpr = Math.min(window.devicePixelRatio||1, 3);
   W = window.innerWidth; H = window.innerHeight;
   for(const c of [cv,sceneCv,liveCv]){ c.width = Math.round(W*dpr); c.height = Math.round(H*dpr); }
   cv.style.width = W+'px'; cv.style.height = H+'px';
@@ -640,6 +642,13 @@ function resize(){
 window.addEventListener('resize', resize);
 
 /* ---------------- painting ---------------- */
+/* the next grid line at or after a (exact), for lines every 40·2^n units */
+function gridCeil(a, n){
+  const t = a.e + n + 3, five = 5n;
+  const cdiv = (x, y) => x >= 0n ? (x + y - 1n)/y : -((-x)/y);
+  const q = t >= 0 ? cdiv(a.m, five << BigInt(t)) : cdiv(a.m << BigInt(-t), five);
+  return hpNorm({m: q*five, e: -(n+3)});
+}
 function worldTransform(c){ const v=view(); c.setTransform(dpr,0,0,dpr,0,0); c.translate(v.x,v.y); c.scale(v.s,v.s); }
 
 function paintBackground(c){
@@ -649,10 +658,11 @@ function paintBackground(c){
   g.addColorStop(0, th.bg); g.addColorStop(1, th.bg2);
   c.fillStyle = g; c.fillRect(0,0,W,H);
   if(S.grid==='none') return;
-  const step = 40*v.s;
-  if(step < 8) return;
+  const B = baseOf(page()), lz2 = Math.log2(v.s) + B.z;
+  const n = Math.ceil(Math.log2(20/40) - lz2), step = 40 * 2**(n + lz2);
   c.strokeStyle = th.guide; c.lineWidth = 1;
-  const ox = ((v.x % step)+step)%step, oy = ((v.y % step)+step)%step;
+  const phase = a => { const g = gridCeil(a, n); return hpToFloat(hpSub(g, a), B.z)*v.s; };
+  const ox = (((v.x + phase(B.x)) % step)+step)%step, oy = (((v.y + phase(B.y)) % step)+step)%step;
   c.beginPath();
   if(S.grid==='grid'||S.grid==='lines'){
     for(let y=oy; y<H; y+=step){ c.moveTo(0,Math.round(y)+.5); c.lineTo(W,Math.round(y)+.5); }
@@ -672,7 +682,7 @@ function styleFor(c,o){
   c.shadowBlur = 0; c.shadowColor='transparent';
   c.globalCompositeOperation='source-over';
   c.strokeStyle = o.color; c.fillStyle = o.color; c.globalAlpha = 1;
-  if(o.tool==='neon'){ c.shadowColor = o.color; c.shadowBlur = Math.max(6,o.size*2.2)*view().s; }
+  if(o.tool==='neon'){ c.shadowColor = o.color; c.shadowBlur = Math.min(80, Math.max(6, o.size*2.2*RENDER.s)); }
 }
 /* Opacity lives here, never in the per-segment draw: a stroke is filled as ONE
    shape, so a translucent tool can't darken itself where it overlaps. */
@@ -727,7 +737,7 @@ function offsetAt(pts, i, half){
 function halfAt(o, pts, i){
   let w = widthAt(o,i);
   if(dynOf(o.tool).nib==='chisel') w *= chiselMult(pts,i);
-  return Math.max(.2, w/2);
+  return Math.max(o.size*0.02, w/2);
 }
 
 /* smoothed positions + widths for a finished stroke */
@@ -741,7 +751,7 @@ function strokeGeom(o){
   const chisel = dynOf(o.tool).nib==='chisel';
   const raw = new Array(n);
   for(let i=0;i<n;i++)
-    raw[i] = Math.max(.35, widthAt(o,i) * (chisel ? chiselMult(pts,i) : 1));
+    raw[i] = Math.max(o.size*0.07, widthAt(o,i) * (chisel ? chiselMult(pts,i) : 1));
   w[0] = raw[0]; w[n-1] = raw[n-1];
   for(let i=1;i<n-1;i++) w[i] = (raw[i-1] + raw[i]*2 + raw[i+1])/4;
   return {pts, w, nib:dynOf(o.tool).nib};
@@ -785,7 +795,7 @@ function ribbonPath(c, g){
 function nibDot(c, pts, i, half, nib){
   const P = pts[i];
   if(nib==='chisel'){
-    const t = Math.max(.7, half*.4);
+    const t = half*.4;
     c.beginPath();
     c.moveTo(P.x + NIB_COS*half - NIB_SIN*t, P.y + NIB_SIN*half + NIB_COS*t);
     c.lineTo(P.x - NIB_COS*half - NIB_SIN*t, P.y - NIB_SIN*half + NIB_COS*t);
@@ -800,36 +810,52 @@ function nibDot(c, pts, i, half, nib){
 /* grain sprinkled along a chalk line, seeded so it never re-rolls */
 function chalkGrain(c, o, g){
   const rnd = mulberry32(o.seed||1);
-  c.save(); c.globalAlpha *= .42;
   for(let i=1;i<g.pts.length;i++){
     const a = g.pts[i-1], b = g.pts[i];
-    const len = Math.hypot(b.x-a.x, b.y-a.y);
-    const n = Math.min(14, Math.ceil(len*.7));
+    const len = Math.hypot(b.x-a.x, b.y-a.y), w = g.w[i];
+    const n = Math.min(14, Math.ceil(len/Math.max(w, 1e-300)*6));
     if(!n) continue;
-    const w = g.w[i], nx = -(b.y-a.y)/(len||1), ny = (b.x-a.x)/(len||1);
+    const nx = -(b.y-a.y)/(len||1), ny = (b.x-a.x)/(len||1);
     for(let k=0;k<n;k++){
       const t = rnd(), off = (rnd()-.5)*w*1.35;
-      c.beginPath();
-      c.arc(a.x+(b.x-a.x)*t + nx*off, a.y+(b.y-a.y)*t + ny*off,
-            Math.max(.22, w*.07*(rnd()+.3)), 0, TAU);
-      c.fill();
+      const x = a.x+(b.x-a.x)*t + nx*off, y = a.y+(b.y-a.y)*t + ny*off, r = Math.max(w*0.025, w*.07*(rnd()+.3));
+      c.moveTo(x+r, y); c.arc(x, y, r, 0, TAU);
     }
   }
-  c.restore();
 }
-
+/* the outline of a stroke only changes when the stroke does, so build it once */
+const strokeCache = new WeakMap();
+function pathAdapter(p){
+  return {beginPath(){}, moveTo:(x,y)=>p.moveTo(x,y), lineTo:(x,y)=>p.lineTo(x,y),
+    quadraticCurveTo:(a,b,x,y)=>p.quadraticCurveTo(a,b,x,y), closePath:()=>p.closePath(), arc:(x,y,r,a0,a1)=>p.arc(x,y,r,a0,a1)};
+}
+function strokePaths(o){
+  const sig = geoSig(o) + '|' + o.tool;
+  let e = strokeCache.get(o);
+  if(e && e.sig===sig) return e;
+  const g = strokeGeom(o), body = new Path2D();
+  ribbonPath(pathAdapter(body), g);
+  let grain = null;
+  if(o.tool==='chalk'){ grain = new Path2D(); chalkGrain(pathAdapter(grain), o, g); }
+  e = {sig, body, grain};
+  strokeCache.set(o, e);
+  return e;
+}
 function drawStroke(c,o){
   const pts = o.points;
   c.save();
   styleFor(c,o);
   c.globalAlpha *= opacityFor(o);
   if(pts.length===1){
-    nibDot(c, pts, 0, Math.max(.4, widthAt(o,0)/2), dynOf(o.tool).nib);
-  } else {
+    nibDot(c, pts, 0, Math.max(o.size*0.08, widthAt(o,0)/2), dynOf(o.tool).nib);
+  } else if(c.__vector){
     const g = strokeGeom(o);
-    ribbonPath(c, g);
-    c.fill();
-    if(o.tool==='chalk') chalkGrain(c, o, g);
+    ribbonPath(c, g); c.fill();
+    if(o.tool==='chalk'){ c.globalAlpha *= .42; c.beginPath(); chalkGrain(c, o, g); c.fill(); }
+  } else {
+    const e = strokePaths(o);
+    c.fill(e.body);
+    if(e.grain){ c.globalAlpha *= .42; c.fill(e.grain); }
   }
   c.restore();
 }
@@ -854,7 +880,7 @@ function drawShape(c,o){
   const b = bbox(o), cx = b.x+b.w/2, cy = b.y+b.h/2;
   c.translate(cx,cy); c.rotate(o.rot||0); c.translate(-cx,-cy);
   if(o.type==='rect'){
-    const r = Math.min(6, Math.abs(b.w)/4, Math.abs(b.h)/4);
+    const r = Math.min(o.size*1.2, Math.abs(b.w)/4, Math.abs(b.h)/4);
     c.beginPath();
     if(c.roundRect) c.roundRect(b.x,b.y,b.w,b.h,r); else c.rect(b.x,b.y,b.w,b.h);
     if(o.fill){ c.save(); c.globalAlpha*=.18; c.fill(); c.restore(); }
@@ -873,7 +899,7 @@ function drawShape(c,o){
     const x1=o.x,y1=o.y,x2=o.x+o.w,y2=o.y+o.h;
     c.beginPath(); c.moveTo(x1,y1); c.lineTo(x2,y2); c.stroke();
     if(o.type==='arrow'){
-      const a = Math.atan2(y2-y1,x2-x1), L = Math.max(10,o.size*3.6);
+      const a = Math.atan2(y2-y1,x2-x1), L = o.size*4;
       c.setLineDash([]);
       c.beginPath();
       c.moveTo(x2-L*Math.cos(a-.42), y2-L*Math.sin(a-.42));
@@ -890,8 +916,9 @@ function drawText(c,o){
   c.save();
   const cx = o.x+m.w/2, cy = o.y+m.h/2;
   c.translate(cx,cy); c.rotate(o.rot||0); c.translate(-cx,-cy);
-  c.font = fontFor(o); c.fillStyle = o.color; c.textBaseline='top';
-  m.lines.forEach((l,i)=> c.fillText(l, o.x+4, o.y+3+i*o.size*1.25));
+  c.translate(o.x, o.y); c.scale(o.size/100, o.size/100);
+  c.font = fontFor(o, 100); c.fillStyle = o.color; c.textBaseline='top';
+  m.lines.forEach((l,i)=> c.fillText(l, 14, 11 + i*125));
   c.restore();
 }
 
@@ -929,8 +956,8 @@ function drawObject(c,o){
 
 function rebuildScene(){
   paintBackground(sctx);
-  worldTransform(sctx);
-  for(const o of page().objects) drawObject(sctx,o);
+  const v = view();
+  renderObjects(sctx, page().objects, [dpr*v.s,0,0,dpr*v.s,dpr*v.x,dpr*v.y], {x0:0, y0:0, x1:sceneCv.width, y1:sceneCv.height});
   sctx.setTransform(1,0,0,1,0,0);
 }
 
@@ -1029,7 +1056,7 @@ function drawOverlay(){
 
   // nib ring, so you always know where the pen is on a shared screen
   if(hover && !overInst && (DRAW_TOOLS.includes(S.tool) || S.tool==='eraser') && (!drag || drag.mode==='draw' || drag.mode==='erase')){
-    const r = Math.max(2.5, S.size*view().s/2);
+    const r = Math.max(2.5, S.size/2);
     ctx.save();
     ctx.strokeStyle = th.dark ? 'rgba(255,255,255,.6)' : 'rgba(0,0,0,.5)';
     ctx.lineWidth = 1; ctx.setLineDash(S.tool==='eraser' ? [3,3] : []);
@@ -1040,6 +1067,7 @@ function drawOverlay(){
 
 /* ---------------- main loop ---------------- */
 function frame(){
+  maybeRebase();
   const v = view();
   const key = [v.x|0,v.y|0,v.s.toFixed(4),W,H,S.theme,S.grid,S.page,page().objects.length].join('|');
   if(sceneDirty || key!==sceneKey){ rebuildScene(); sceneKey = key; sceneDirty = false; }
@@ -1131,6 +1159,7 @@ function cancelActiveDrag(){
   drag = null;
 }
 function startGesture(){
+  if(editing) closeTextEditor();
   const [a,b] = [...pointers.values()], v = view();
   gesture = {d:Math.hypot(b.x-a.x,b.y-a.y)||1, cx:(a.x+b.x)/2, cy:(a.y+b.y)/2, s:v.s, vx:v.x, vy:v.y};
 }
@@ -1138,7 +1167,7 @@ function moveGesture(){
   const [a,b] = [...pointers.values()], v = view();
   const d = Math.hypot(b.x-a.x,b.y-a.y)||1;
   const cx = (a.x+b.x)/2, cy = (a.y+b.y)/2;
-  const ns = clamp(gesture.s*(d/gesture.d), .1, 8), f = ns/gesture.s;
+  const ns = gesture.s*(d/gesture.d), f = ns/gesture.s;
   v.s = ns;
   v.x = cx - (gesture.cx-gesture.vx)*f;
   v.y = cy - (gesture.cy-gesture.vy)*f;
@@ -1179,7 +1208,7 @@ function onDown(e){
     pushUndo(); drag={mode:'erase', erased:false}; eraseAt(wp); return;
   }
   if(SHAPE_TOOLS.includes(S.tool)){
-    const o = {id:uid(), type:S.tool, tool:S.tool, color:S.color, size:S.size, fill:S.fill, dash:S.dash,
+    const o = {id:uid(), type:S.tool, tool:S.tool, color:S.color, size:S.size/view().s, fill:S.fill, dash:S.dash,
                x:wp.x, y:wp.y, w:0, h:0, rot:0};
     beginLive(o); liveAlpha = 1;
     drag = {mode:'shape', ox:wp.x, oy:wp.y};
@@ -1187,15 +1216,15 @@ function onDown(e){
   }
   // freehand
   const guide = instGuide(wp);
-  const p0 = guide ? guideProject(guide, wp, S.size/2) : wp;
-  const o = {id:uid(), type:'stroke', tool:S.tool, color:S.color, size:S.size, seed:(Math.random()*1e9)|0,
+  const p0 = guide ? guideProject(guide, wp, S.size/2/view().s) : wp;
+  const o = {id:uid(), type:'stroke', tool:S.tool, color:S.color, size:S.size/view().s, seed:(Math.random()*1e9)|0,
              points:[{x:p0.x, y:p0.y, p:pointerPressure(e,p0)}]};
   beginLive(o);
   lastPt = p0;
   drag = {mode:'draw', guide};
   // dot
   lctx.save(); styleFor(lctx,o); lctx.globalAlpha = 1;
-  nibDot(lctx, o.points, 0, Math.max(.4,widthAt(o,0)/2), dynOf(o.tool).nib);
+  nibDot(lctx, o.points, 0, Math.max(o.size*0.08, widthAt(o,0)/2), dynOf(o.tool).nib);
   lctx.restore();
 }
 
@@ -1299,9 +1328,9 @@ function onUp(e){
 }
 
 function eraseAt(wp){
-  const p = page(), r = S.size/2;
+  const p = page(), r = S.size/2/view().s;
   for(let i=p.objects.length-1;i>=0;i--){
-    if(hit(p.objects[i], wp, r)){
+    if(!p.objects[i]._off && hit(p.objects[i], wp, r)){
       p.objects.splice(i,1); drag.erased = true; sceneDirty = true;
       S.selection = [];
     }
@@ -1330,7 +1359,7 @@ function startSelect(sp, wp, e){
   }
   const p = page();
   let target = null;
-  for(let i=p.objects.length-1;i>=0;i--){ if(hit(p.objects[i], wp, tol)){ target = p.objects[i]; break; } }
+  for(let i=p.objects.length-1;i>=0;i--){ if(!p.objects[i]._off && hit(p.objects[i], wp, tol)){ target = p.objects[i]; break; } }
 
   if(!target){
     if(!e.shiftKey) S.selection = [];
@@ -1355,6 +1384,7 @@ function moveSelect(sp, wp, e){
     const a = S2W(Math.min(marquee.x1,marquee.x2), Math.min(marquee.y1,marquee.y2));
     const b = S2W(Math.max(marquee.x1,marquee.x2), Math.max(marquee.y1,marquee.y2));
     S.selection = page().objects.filter(o=>{
+      if(o._off) return false;
       const bb = bbox(o);
       return bb.x < b.x && bb.x+bb.w > a.x && bb.y < b.y && bb.y+bb.h > a.y;
     });
@@ -1419,7 +1449,7 @@ cv.addEventListener('dblclick', e=>{
   if(instHit(wp)) return;
   for(let i=p.objects.length-1;i>=0;i--){
     const o = p.objects[i];
-    if(!hit(o, wp, 4/view().s)) continue;
+    if(o._off || !hit(o, wp, 4/view().s)) continue;
     if(o.type==='text'){ openTextEditor(null, o); return; }
     if(S.tool==='select' && EDITABLE.includes(o.type)){ editObject(o); return; }
   }
@@ -1441,31 +1471,34 @@ cv.addEventListener('wheel', e=>{
   if(e.ctrlKey || e.metaKey){
     zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY*0.0022));
   } else if(e.shiftKey){
+    if(editing) closeTextEditor();
     v.x -= e.deltaY + e.deltaX;
   } else {
+    if(editing) closeTextEditor();
     v.x -= e.deltaX; v.y -= e.deltaY;
   }
   updateZoomLabel();
 },{passive:false});
 
 function zoomAt(sx, sy, factor){
+  if(editing) closeTextEditor();
   const v = view();
-  const ns = clamp(v.s*factor, .1, 8);
+  const ns = v.s*factor;
+  if(!(ns > 0) || !isFinite(ns)) return;
   const f = ns/v.s;
   v.x = sx - (sx - v.x)*f;
   v.y = sy - (sy - v.y)*f;
   v.s = ns;
   updateZoomLabel();
 }
-function resetView(){ const v=view(); v.x=0; v.y=0; v.s=1; updateZoomLabel(); }
-function updateZoomLabel(){ $('zoomPct').textContent = Math.round(view().s*100)+'%'; }
+
 
 /* ---------------- text editing ---------------- */
 let editing = null;
 function openTextEditor(wp, existing){
   closeTextEditor();
   const o = existing || {id:uid(), type:'text', tool:'text', color:S.color,
-                         size:Math.max(12, S.tool==='text'?S.size:28), rot:0,
+                         size:Math.max(12, S.tool==='text'?S.size:28)/view().s, rot:0,
                          x:wp.x, y:wp.y, text:''};
   const ta = document.createElement('textarea');
   ta.id = 'ta';
@@ -1687,7 +1720,8 @@ window.addEventListener('paste', e=>{
     if(txt){
       pushUndo();
       const c = S2W(W/2,H/2);
-      page().objects.push({id:uid(), type:'text', tool:'text', color:S.color, size:28, rot:0, x:c.x-100, y:c.y-20, text:txt});
+      const s = view().s;
+      page().objects.push({id:uid(), type:'text', tool:'text', color:S.color, size:28/s, rot:0, x:c.x-100/s, y:c.y-20/s, text:txt});
       sceneDirty = true;
     }
   }
@@ -1704,9 +1738,19 @@ function stamp(){
   const d = new Date(), p = n=>String(n).padStart(2,'0');
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}${p(d.getMinutes())}`;
 }
+function serObj(o){
+  const c = cloneObj(o); delete c._bb; delete c._sig;
+  if(o._P){ const P = o._P; c._P = {ox:hpSer(P.ox), oy:hpSer(P.oy), z:P.z, w:P.w, h:P.h, size:P.size, pts:P.pts ? Array.from(P.pts) : undefined}; }
+  return c;
+}
+function deObj(c){
+  if(c._P){ const P = c._P; c._P = {ox:hpDe(P.ox), oy:hpDe(P.oy), z:P.z, w:P.w, h:P.h, size:P.size, pts:P.pts ? Float64Array.from(P.pts) : undefined}; c._sig = geoSig(c); }
+  return c;
+}
 function saveBoards(){
-  const data = {app:'screenboard', v:1, theme:S.theme, grid:S.grid,
-    pages:S.pages.map(p=>({objects:p.objects.map(o=>{ const c=cloneObj(o); delete c._bb; return c; })}))};
+  for(const pg of S.pages) for(const o of pg.objects) if(!o._off && (!o._P || o._sig !== geoSig(o))) syncExact(o, baseOf(pg));
+  const data = {app:'screenboard', v:2, theme:S.theme, grid:S.grid,
+    pages:S.pages.map(p=>{ const B = baseOf(p); return {objects:p.objects.map(serObj), base:{x:hpSer(B.x), y:hpSer(B.y), z:B.z}, view:{...p.view}}; })};
   download(new Blob([JSON.stringify(data)],{type:'application/json'}), `Screenboard ${stamp()}.screenboard`);
 }
 $('saveBtn').addEventListener('click', saveBoards);
@@ -1718,7 +1762,9 @@ $('fileOpen').addEventListener('change', e=>{
     try{
       const d = JSON.parse(r.result);
       if(!d.pages) throw new Error('bad file');
-      S.pages = d.pages.map(p=>({objects:p.objects||[], undo:[], redo:[], view:{x:0,y:0,s:1}}));
+      S.pages = d.pages.map(p=>({objects:(p.objects||[]).map(deObj), undo:[], redo:[],
+        view: p.view && p.view.s>0 ? {x:+p.view.x||0, y:+p.view.y||0, s:+p.view.s} : {x:0,y:0,s:1},
+        base: p.base ? {x:hpDe(p.base.x), y:hpDe(p.base.y), z:+p.base.z||0} : {x:HP0, y:HP0, z:0}}));
       S.page = 0; S.selection = [];
       if(d.theme && THEMES[d.theme]) setTheme(d.theme);
       if(d.grid) S.grid = d.grid;
@@ -1728,32 +1774,6 @@ $('fileOpen').addEventListener('change', e=>{
   r.readAsText(f);
   e.target.value='';
 });
-function exportPNG(){
-  const objs = page().objects;
-  const pad = 48;
-  let box;
-  if(objs.length){
-    box = unionBox(objs);
-    box = {x:box.x-pad, y:box.y-pad, w:box.w+pad*2, h:box.h+pad*2};
-  } else {
-    const a = S2W(0,0), b = S2W(W,H);
-    box = {x:a.x, y:a.y, w:b.x-a.x, h:b.y-a.y};
-  }
-  const scale = clamp(2200/Math.max(box.w,box.h), .5, 2.5);
-  const c = document.createElement('canvas');
-  c.width = Math.max(1,Math.round(box.w*scale)); c.height = Math.max(1,Math.round(box.h*scale));
-  const g = c.getContext('2d');
-  const th = THEMES[S.theme];
-  const grad = g.createLinearGradient(0,0,c.width*.35,c.height);
-  grad.addColorStop(0,th.bg); grad.addColorStop(1,th.bg2);
-  g.fillStyle = grad; g.fillRect(0,0,c.width,c.height);
-  g.setTransform(scale,0,0,scale,-box.x*scale,-box.y*scale);
-  const savedDpr = dpr, savedView = page().view;
-  dpr = 1; page().view = {x:0,y:0,s:scale};
-  for(const o of objs) drawObject(g,o);
-  dpr = savedDpr; page().view = savedView;
-  c.toBlob(b=>download(b, `Screenboard ${stamp()}.png`), 'image/png');
-}
 $('pngBtn').addEventListener('click', exportPNG);
 
 /* ---------------- pages ---------------- */
@@ -2243,77 +2263,44 @@ function parseGraphLine(line){
   return r.items[0];
 }
 
-/* ================= graphs: geometry, in math units ================= */
-const graphCache = new WeakMap();
-function niceStep(range, target){
-  const raw = range/Math.max(1,target), p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw/p;
-  return (f<1.5 ? 1 : f<3.5 ? 2 : f<7.5 ? 5 : 10)*p;
-}
+/* ================= graphs: geometry, in math units =================
+   Curves are worked out for the part of the graph that's on screen, at screen
+   resolution, so zooming into a graph adds detail instead of stretching it. */
+const graphCache = new WeakMap(), graphDetailCache = new WeakMap();
+/* what's being drawn right now: the visible world rect and pixels per world unit */
+const RENDER = {win:{x0:-1e9, y0:-1e9, x1:1e9, y1:1e9}, s:1, exporting:false};
+function nice(raw){ const p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw/p; return (f<1.5 ? 1 : f<3.5 ? 2 : f<7.5 ? 5 : 10)*p; }
+function nextNice(x){ const p = Math.pow(10, Math.floor(Math.log10(x)+1e-9)), f = x/p; return (f<1.5 ? 2 : f<3.5 ? 5 : 10)*p; }
+function niceStep(range, target){ return nice(range/Math.max(1,target)); }
 function fmtNum(v, step){
-  const d = clamp(-Math.floor(Math.log10(step)+1e-9), 0, 6);
+  if(Math.abs(v) < step*1e-6) return '0';
+  if(step < 1e-4 || Math.abs(v) >= 1e7){
+    const digits = clamp(Math.ceil(Math.log10(Math.abs(v)/step)) + 1, 1, 15);
+    return v.toPrecision(digits).replace(/\.?0+e/, 'e').replace('e+', 'e');
+  }
+  const d = clamp(-Math.floor(Math.log10(step)+1e-9), 0, 12);
   let s = v.toFixed(d);
   if(s.includes('.')) s = s.replace(/0+$/,'').replace(/\.$/,'');
   return s==='-0' ? '0' : s;
 }
-function samplePath(n, at, jump){
-  const out = []; let prev = null;
-  for(let i=0;i<=n;i++){
-    const p = at(i/n);
-    if(!p || !isFinite(p[0]) || !isFinite(p[1])){ if(prev) out.push(NaN, NaN); prev = null; continue; }
-    if(prev && Math.hypot(p[0]-prev[0], p[1]-prev[1]) > jump) out.push(NaN, NaN);
-    out.push(p[0], p[1]); prev = p;
-  }
-  return out;
-}
-/* zero contour of F on a grid (marching squares), dropping false edges at asymptotes */
-function contour(F, E, x0, x1, y0, y1, NX, NY, cond){
-  const dx = (x1-x0)/NX, dy = (y1-y0)/NY, W1 = NX+1, V = new Float64Array(W1*(NY+1));
-  for(let j=0;j<=NY;j++) for(let i=0;i<=NX;i++){ E.x = x0+i*dx; E.y = y0+j*dy; V[j*W1+i] = F(E); }
-  const segs = [];
-  const cross = (xa,ya,va,xb,yb,vb)=>{
-    if(!isFinite(va) || !isFinite(vb) || (va<0)===(vb<0)) return null;
-    const t = va/(va-vb), px = xa+(xb-xa)*t, py = ya+(yb-ya)*t;
-    E.x = px; E.y = py;
-    const fv = F(E);
-    return Math.abs(fv) <= 0.3*(Math.abs(va)+Math.abs(vb)) + 1e-12 ? [px,py] : null;
-  };
-  for(let j=0;j<NY;j++) for(let i=0;i<NX;i++){
-    const xa = x0+i*dx, ya = y0+j*dy, xb = xa+dx, yb = ya+dy;
-    const v0 = V[j*W1+i], v1 = V[j*W1+i+1], v2 = V[(j+1)*W1+i+1], v3 = V[(j+1)*W1+i];
-    const e = [cross(xa,ya,v0, xb,ya,v1), cross(xb,ya,v1, xb,yb,v2), cross(xb,yb,v2, xa,yb,v3), cross(xa,yb,v3, xa,ya,v0)];
-    const hits = e.filter(Boolean);
-    let pairs;
-    if(hits.length===2) pairs = [hits];
-    else if(hits.length===4){
-      E.x = xa+dx/2; E.y = ya+dy/2;
-      const vc = F(E);
-      pairs = (vc<0)===(v0<0) ? [[e[0],e[1]],[e[2],e[3]]] : [[e[3],e[0]],[e[1],e[2]]];
-    } else continue;
-    for(const [p,q] of pairs){
-      if(cond){ E.x = (p[0]+q[0])/2; E.y = (p[1]+q[1])/2; if(!cond(E)) continue; }
-      segs.push(p[0],p[1],q[0],q[1]);
-    }
-  }
-  return segs;
-}
-function graphData(o){
-  const aspect = Math.abs(o.h)/Math.max(1, Math.abs(o.w));
+/* parse + y range: independent of how far you're zoomed in */
+function graphProg(o){
+  const aspect = Math.abs(o.h)/Math.max(1e-300, Math.abs(o.w));
   const auto = !(o.y0!=null && o.y1!=null && o.y1>o.y0);
-  const key = [o.exprs.join('\n'), o.x0, o.x1, o.y0, o.y1, auto ? aspect.toFixed(2) : ''].join('|');
+  const key = [o.exprs.join('\n'), o.x0, o.x1, o.y0, o.y1, auto ? aspect.toFixed(3) : ''].join('|');
   const hit = graphCache.get(o);
   if(hit && hit.key===key) return hit;
-
   const prog = parseGraphProgram(o.exprs);
   const X0 = o.x0, X1 = o.x1, E = Object.assign({}, prog.consts);
   let y0 = o.y0, y1 = o.y1;
   if(auto){
-    const drawn = prog.items;
-    if(drawn.length && drawn.every(it=>it.kind==='fx')){
+    if(prog.items.length && prog.items.every(it=>it.kind==='fx')){
       const vals = [];
-      for(const it of drawn) for(let i=0;i<=300;i++){
-        E.x = X0+(X1-X0)*i/300;
+      for(const it of prog.items) for(let i=0;i<=300;i++){
+        E.x = X0+(X1-X0)*i/300; E.y = NaN;
+        const v = it.f(E); E.y = v;
         if(it.cond && !it.cond(E)) continue;
-        const v = it.f(E); if(isFinite(v)) vals.push(v);
+        if(isFinite(v)) vals.push(v);
       }
       vals.sort((a,b)=>a-b);
       if(vals.length){
@@ -2324,45 +2311,170 @@ function graphData(o){
         if(y1 < 0 && -y1 < (y1-y0)*0.4) y1 = (y1-y0)*0.06;
       }
     }
-    if(y0==null || y1==null || !(y1>y0)){       // same scale on both axes, so circles stay round
-      const span = (X1-X0)*aspect, mid = 0;
-      y0 = mid - span/2; y1 = mid + span/2;
+    if(y0==null || y1==null || !(y1>y0)){ const span = (X1-X0)*aspect; y0 = -span/2; y1 = span/2; }
+  }
+  const out = {key, prog, y0, y1};
+  graphCache.set(o, out);
+  return out;
+}
+/* sample a curve p(u) for u in [a,b], adding points only where the curve is on
+   screen and bending, and breaking it at gaps and asymptotes */
+function adaptiveCurve(f, a, b, N, toPx, onScreen, budget){
+  const out = []; let emitted = null, count = 0;
+  const ok = p => p && isFinite(p[0]) && isFinite(p[1]);
+  const emit = (p, d, maxD)=>{
+    if(!ok(p)){ if(emitted) out.push(NaN, NaN); emitted = null; return; }
+    if(emitted && d>=maxD){
+      const A = toPx(emitted), B = toPx(p);
+      if(Math.hypot(B[0]-A[0], B[1]-A[1]) > 60) out.push(NaN, NaN);
+    }
+    out.push(p[0], p[1]); emitted = p;
+  };
+  const rec = (u0, p0, u1, p1, d, maxD)=>{
+    if(d < maxD && count < budget){
+      let need = false;
+      if(ok(p0) !== ok(p1)) need = true;
+      else if(ok(p0) && onScreen(p0, p1)){
+        const A = toPx(p0), B = toPx(p1);
+        need = Math.hypot(B[0]-A[0], B[1]-A[1]) > 2;
+      }
+      if(need){
+        const um = (u0+u1)/2, pm = f(um); count++;
+        rec(u0, p0, um, pm, d+1, maxD); rec(um, pm, u1, p1, d+1, maxD);
+        return;
+      }
+    }
+    emit(p1, d, maxD);
+  };
+  let u0 = a, p0 = f(a); emit(p0, 0, 0);
+  for(let i=1;i<=N;i++){
+    const u1 = a + (b-a)*i/N, p1 = f(u1); count++;
+    rec(u0, p0, u1, p1, 0, 12);
+    u0 = u1; p0 = p1;
+  }
+  return out;
+}
+/* zero contour of F on a grid (marching squares), dropping false edges at asymptotes */
+function contour(F, E, x0, x1, y0, y1, NX, NY, cond, V){
+  const dx = (x1-x0)/NX, dy = (y1-y0)/NY, W1 = NX+1;
+  if(!V){ V = new Float64Array(W1*(NY+1)); for(let j=0;j<=NY;j++) for(let i=0;i<=NX;i++){ E.x = x0+i*dx; E.y = y0+j*dy; V[j*W1+i] = F(E); } }
+  const segs = [];
+  const cross = (xa,ya,va,xb,yb,vb)=>{
+    if(!isFinite(va) || !isFinite(vb) || (va<0)===(vb<0)) return null;
+    const t = va/(va-vb), px = xa+(xb-xa)*t, py = ya+(yb-ya)*t;
+    E.x = px; E.y = py;
+    const fv = F(E);
+    return Math.abs(fv) <= 0.3*(Math.abs(va)+Math.abs(vb)) + 1e-300 ? [px,py] : null;
+  };
+  for(let j=0;j<NY;j++) for(let i=0;i<NX;i++){
+    const xa = x0+i*dx, ya = y0+j*dy, xb = xa+dx, yb = ya+dy;
+    const v0 = V[j*W1+i], v1 = V[j*W1+i+1], v2 = V[(j+1)*W1+i+1], v3 = V[(j+1)*W1+i];
+    if((v0<0)===(v1<0) && (v1<0)===(v2<0) && (v2<0)===(v3<0)) continue;
+    const e = [cross(xa,ya,v0, xb,ya,v1), cross(xb,ya,v1, xb,yb,v2), cross(xb,yb,v2, xa,yb,v3), cross(xa,yb,v3, xa,ya,v0)];
+    const hits = e.filter(Boolean);
+    let pairs;
+    if(hits.length===2) pairs = [hits];
+    else if(hits.length===4){
+      E.x = xa+dx/2; E.y = ya+dy/2;
+      pairs = (F(E)<0)===(v0<0) ? [[e[0],e[1]],[e[2],e[3]]] : [[e[3],e[0]],[e[1],e[2]]];
+    } else continue;
+    for(const [p,q] of pairs){
+      if(cond){ E.x = (p[0]+q[0])/2; E.y = (p[1]+q[1])/2; if(!cond(E)) continue; }
+      segs.push(p[0],p[1],q[0],q[1]);
     }
   }
-  const spanX = X1-X0, spanY = y1-y0, jump = Math.max(spanX, spanY)*0.6;
-  const NX = 220, NY = clamp(Math.round(NX*aspect), 40, 400);
-  const out = {key, y0, y1, items:[], constLines:prog.constLines, errors:prog.errors};
+  return {segs, V};
+}
+/* the inside of an inequality, as polygons that follow the boundary exactly */
+function regionPolys(it, E, x0, x1, y0, y1, NX, NY, V){
+  const dx = (x1-x0)/NX, dy = (y1-y0)/NY, W1 = NX+1, test = cmp[it.op];
+  const inside = v => isFinite(v) && test(v, 0);
+  const rows = [], polys = [];
+  for(let j=0;j<NY;j++){
+    let run = -1;
+    const flush = i=>{ if(run>=0){ rows.push(x0+run*dx, y0+j*dy, x0+i*dx, y0+(j+1)*dy); run = -1; } };
+    for(let i=0;i<NX;i++){
+      const xa = x0+i*dx, ya = y0+j*dy, xb = xa+dx, yb = ya+dy;
+      const c = [[xa,ya,V[j*W1+i]], [xb,ya,V[j*W1+i+1]], [xb,yb,V[(j+1)*W1+i+1]], [xa,yb,V[(j+1)*W1+i]]];
+      let all = true, none = true;
+      for(const k of c){ if(inside(k[2])) none = false; else all = false; }
+      let cellOk = true;
+      if(it.cond){ E.x = xa+dx/2; E.y = ya+dy/2; cellOk = it.cond(E); }
+      if(all && cellOk){ if(run<0) run = i; continue; }
+      flush(i);
+      if(none || !cellOk) continue;
+      const poly = [];
+      for(let k=0;k<4;k++){
+        const A = c[k], B = c[(k+1)%4];
+        if(inside(A[2])) poly.push(A[0], A[1]);
+        if(inside(A[2]) !== inside(B[2]) && isFinite(A[2]) && isFinite(B[2])){
+          const t = A[2]/(A[2]-B[2]); poly.push(A[0]+(B[0]-A[0])*t, A[1]+(B[1]-A[1])*t);
+        }
+      }
+      if(poly.length >= 6) polys.push(poly);
+    }
+    flush(NX);
+  }
+  return {rows, polys};
+}
+/* geometry for what's visible, cached; while zooming it reuses the last result
+   briefly and refines once you pause */
+function graphDetail(o){
+  const R = graphProg(o), b = bbox(o), X0 = o.x0, X1 = o.x1, Y0 = R.y0, Y1 = R.y1;
+  const s = RENDER.s, pxX = b.w*s/(X1-X0), pxY = b.h*s/(Y1-Y0);
+  if(!(pxX > 0) || !(pxY > 0)) return {items:[]};
+  let mx0 = X0, mx1 = X1, my0 = Y0, my1 = Y1;
+  const lz = Math.round(Math.log2(pxX)*2)/2;
+  if(!(o.rot)){
+    const w = RENDER.win, cell = 256/pxX, cellY = 256/pxY;
+    const wx0 = X0 + (w.x0-b.x)/b.w*(X1-X0), wx1 = X0 + (w.x1-b.x)/b.w*(X1-X0);
+    const wy0 = Y1 - (w.y1-b.y)/b.h*(Y1-Y0), wy1 = Y1 - (w.y0-b.y)/b.h*(Y1-Y0);
+    mx0 = Math.max(X0, (Math.floor(wx0/cell)-1)*cell); mx1 = Math.min(X1, (Math.ceil(wx1/cell)+1)*cell);
+    my0 = Math.max(Y0, (Math.floor(wy0/cellY)-1)*cellY); my1 = Math.min(Y1, (Math.ceil(wy1/cellY)+1)*cellY);
+  }
+  if(!(mx1>mx0) || !(my1>my0)) return {items:[], mx0, mx1, my0, my1};
+  const key = [R.key, lz, mx0, mx1, my0, my1].join('|');
+  const hit = graphDetailCache.get(o);
+  if(hit && hit.key===key) return hit;
+  const now = performance.now();
+  if(hit && !RENDER.exporting && now - hit.t < 90){ clearTimeout(hit.timer); hit.timer = setTimeout(()=>{ sceneDirty = true; }, 110); return hit; }
+
+  const prog = R.prog, E = Object.assign({}, prog.consts);
+  const toPx = p => [p[0]*pxX, p[1]*pxY];
+  const padX = (mx1-mx0)*0.02, padY = (my1-my0)*0.02;
+  const onScreen = (p, q)=> !(Math.max(p[0],q[0]) < mx0-padX || Math.min(p[0],q[0]) > mx1+padX || Math.max(p[1],q[1]) < my0-padY || Math.min(p[1],q[1]) > my1+padY);
+  const winPxW = (mx1-mx0)*pxX, winPxH = (my1-my0)*pxY;
+  let NX = clamp(Math.round(winPxW/4), 24, 480), NY = clamp(Math.round(winPxH/4), 24, 400);
+  if(NX*NY > 110000){ const k = Math.sqrt(110000/(NX*NY)); NX = Math.max(24, Math.round(NX*k)); NY = Math.max(24, Math.round(NY*k)); }
+  const items = [];
   for(const it of prog.items){
     const g = {kind:it.kind, label:it.label};
     const ok = it.cond ? (()=>it.cond(E)) : (()=>true);
     if(it.kind==='fx'){
-      g.path = samplePath(1000, u=>{ E.x = X0+spanX*u; E.y = NaN; const v = it.f(E); E.y = v; return ok() ? [E.x, v] : null; }, spanY*1.2);
+      g.path = adaptiveCurve(x=>{ E.x = x; E.y = NaN; const v = it.f(E); E.y = v; return ok() ? [x, v] : null; },
+        mx0, mx1, clamp(Math.round(winPxW/6), 32, 600), toPx, onScreen, 60000);
     } else if(it.kind==='fy'){
-      g.path = samplePath(1000, u=>{ E.y = y0+spanY*u; E.x = NaN; const v = it.f(E); E.x = v; return ok() ? [v, E.y] : null; }, spanX*1.2);
+      g.path = adaptiveCurve(y=>{ E.y = y; E.x = NaN; const v = it.f(E); E.x = v; return ok() ? [v, y] : null; },
+        my0, my1, clamp(Math.round(winPxH/6), 32, 600), toPx, onScreen, 60000);
     } else if(it.kind==='polar'){
-      const [a,b] = it.range;
-      g.path = samplePath(1600, u=>{ const th = a+(b-a)*u; E['θ'] = th; const r = it.f(E); E.x = r*Math.cos(th); E.y = r*Math.sin(th); E.r = r; return ok() ? [E.x, E.y] : null; }, jump);
+      const [a,c] = it.range;
+      g.path = adaptiveCurve(th=>{ E['θ'] = th; const r = it.f(E); E.r = r; E.x = r*Math.cos(th); E.y = r*Math.sin(th); return ok() ? [E.x, E.y] : null; },
+        a, c, 720, toPx, onScreen, 80000);
     } else if(it.kind==='param'){
-      const [a,b] = it.range;
-      g.path = samplePath(1600, u=>{ E.t = a+(b-a)*u; const x = it.fx(E), y = it.fy(E); E.x = x; E.y = y; return ok() ? [x,y] : null; }, jump);
-    } else if(it.kind==='implicit'){
-      g.segs = contour(it.F, E, X0, X1, y0, y1, NX, NY, it.cond);
-    } else if(it.kind==='region'){
-      const test = cmp[it.op], GX = 160, GY = clamp(Math.round(GX*aspect), 30, 300), cells = new Uint8Array(GX*GY);
-      for(let j=0;j<GY;j++) for(let i=0;i<GX;i++){
-        E.x = X0+(i+.5)*spanX/GX; E.y = y0+(j+.5)*spanY/GY;
-        const v = it.F(E);
-        cells[j*GX+i] = isFinite(v) && test(v, 0) && ok() ? 1 : 0;
-      }
-      g.cells = cells; g.GX = GX; g.GY = GY;
-      g.segs = contour(it.F, E, X0, X1, y0, y1, NX, NY, it.cond);
-      g.dashed = it.op==='<' || it.op==='>';
+      const [a,c] = it.range;
+      g.path = adaptiveCurve(t=>{ E.t = t; const x = it.fx(E), y = it.fy(E); E.x = x; E.y = y; return ok() ? [x, y] : null; },
+        a, c, 720, toPx, onScreen, 80000);
+    } else if(it.kind==='implicit' || it.kind==='region'){
+      const C = contour(it.F, E, mx0, mx1, my0, my1, NX, NY, it.cond);
+      g.segs = C.segs;
+      if(it.kind==='region'){ Object.assign(g, regionPolys(it, E, mx0, mx1, my0, my1, NX, NY, C.V)); g.dashed = it.op==='<' || it.op==='>'; }
     } else if(it.kind==='points'){
       g.pts = it.pts;
     }
-    out.items.push(g);
+    items.push(g);
   }
-  graphCache.set(o, out);
+  const out = {key, items, t:performance.now(), mx0, mx1, my0, my1};
+  graphDetailCache.set(o, out);
   return out;
 }
 function graphColor(o, k){
@@ -2371,64 +2483,81 @@ function graphColor(o, k){
   return pal[order[(k-1) % order.length]];
 }
 function drawGraph(c, o){
-  const b = bbox(o), gd = graphData(o), th = THEMES[S.theme];
-  const ink = th.dark ? '255,255,255' : '22,26,32';
-  const fs = clamp(Math.min(b.w, b.h)/24, 9, 20);
-  const X0 = o.x0, X1 = o.x1, Y0 = gd.y0, Y1 = gd.y1;
+  const b = bbox(o), R = graphProg(o), gd = graphDetail(o), th = THEMES[S.theme];
+  const ink = th.dark ? '255,255,255' : '22,26,32', s = RENDER.s;
+  // labels and lines grow with zoom up to a point, then stay a readable size on screen
+  const fsBase = Math.min(b.w, b.h)/24, fsPx = Math.min(15, Math.max(fsBase*s, Math.min(9, Math.min(b.w,b.h)*s/12)));
+  const fs = fsPx/s;
+  const X0 = o.x0, X1 = o.x1, Y0 = R.y0, Y1 = R.y1;
+  const pxX = b.w*s/(X1-X0), pxY = b.h*s/(Y1-Y0);
   const X = v => b.x + (v-X0)/(X1-X0)*b.w, Y = v => b.y + b.h - (v-Y0)/(Y1-Y0)*b.h;
   c.save();
   const cx = b.x+b.w/2, cy = b.y+b.h/2;
   c.translate(cx,cy); c.rotate(o.rot||0); c.translate(-cx,-cy);
   c.beginPath();
-  if(c.roundRect) c.roundRect(b.x,b.y,b.w,b.h, fs*0.6); else c.rect(b.x,b.y,b.w,b.h);
+  if(c.roundRect) c.roundRect(b.x,b.y,b.w,b.h, Math.min(fsBase*0.6, b.w/4, b.h/4)); else c.rect(b.x,b.y,b.w,b.h);
   c.fillStyle = `rgba(${ink},.035)`; c.fill();
-  c.lineWidth = Math.max(1, fs*0.07); c.strokeStyle = `rgba(${ink},.22)`; c.stroke();
+  c.lineWidth = Math.min(Math.max(1/s, fsBase*0.07), 1.2/s); c.strokeStyle = `rgba(${ink},.22)`; c.stroke();
   c.save(); c.clip();
 
-  const sx = niceStep(X1-X0, clamp(b.w/(fs*5.5), 2, 14)), sy = niceStep(Y1-Y0, clamp(b.h/(fs*4), 2, 12));
-  c.lineWidth = Math.max(.75, fs*0.05); c.strokeStyle = `rgba(${ink},.09)`;
+  // grid, only across the visible part, spaced for the screen
+  const vx0 = gd.mx0 ?? X0, vx1 = gd.mx1 ?? X1, vy0 = gd.my0 ?? Y0, vy1 = gd.my1 ?? Y1;
+  let sx = nice(Math.max(fsPx,9)*5.5/pxX), sy = nice(Math.max(fsPx,9)*3/pxY);
+  const labelPx = (v, st) => fmtNum(v, st).length*Math.max(fsPx,9)*0.62 + Math.max(fsPx,9)*1.4;
+  for(let i=0;i<8 && sx*pxX < Math.max(labelPx(vx0,sx), labelPx(vx1,sx)); i++) sx = nextNice(sx);
+  for(let i=0;i<8 && sy*pxY < Math.max(fsPx,9)*2.2; i++) sy = nextNice(sy);
+  const xs = [], ys = [];
+  if((vx1-vx0)/sx < 400) for(let k=Math.ceil(vx0/sx); k*sx<=vx1; k++) xs.push(k*sx);
+  if((vy1-vy0)/sy < 400) for(let k=Math.ceil(vy0/sy); k*sy<=vy1; k++) ys.push(k*sy);
+  c.lineWidth = 0.75/s; c.strokeStyle = `rgba(${ink},.09)`;
   c.beginPath();
-  for(let v=Math.ceil(X0/sx)*sx; v<=X1+sx*1e-6; v+=sx){ const px = X(v); c.moveTo(px,b.y); c.lineTo(px,b.y+b.h); }
-  for(let v=Math.ceil(Y0/sy)*sy; v<=Y1+sy*1e-6; v+=sy){ const py = Y(v); c.moveTo(b.x,py); c.lineTo(b.x+b.w,py); }
+  for(const v of xs){ const px = X(v); c.moveTo(px,b.y); c.lineTo(px,b.y+b.h); }
+  for(const v of ys){ const py = Y(v); c.moveTo(b.x,py); c.lineTo(b.x+b.w,py); }
   c.stroke();
 
   const ax = clamp(Y(0), b.y, b.y+b.h), ay = clamp(X(0), b.x, b.x+b.w);
-  c.strokeStyle = `rgba(${ink},.55)`; c.lineWidth = Math.max(1, fs*0.09);
+  c.strokeStyle = `rgba(${ink},.55)`; c.lineWidth = 1.3/s;
   c.beginPath(); c.moveTo(b.x,ax); c.lineTo(b.x+b.w,ax); c.moveTo(ay,b.y); c.lineTo(ay,b.y+b.h); c.stroke();
 
-  c.fillStyle = `rgba(${ink},.62)`; c.font = `500 ${fs}px ${UI_FONT}`;
-  c.textAlign = 'center'; c.textBaseline = 'top';
-  const ly = ax + fs*1.4 > b.y+b.h ? ax - fs*1.3 : ax + fs*0.35;
-  for(let v=Math.ceil(X0/sx)*sx; v<=X1+sx*1e-6; v+=sx){
-    if(Math.abs(v) < sx*1e-6) continue;
-    const px = X(v); if(px < b.x+fs || px > b.x+b.w-fs) continue;
-    c.fillText(fmtNum(v,sx), px, ly);
-  }
-  const leftSide = ay - fs*3 >= b.x;
-  c.textAlign = leftSide ? 'right' : 'left'; c.textBaseline = 'middle';
-  const lx = leftSide ? ay - fs*0.45 : ay + fs*0.45;
-  for(let v=Math.ceil(Y0/sy)*sy; v<=Y1+sy*1e-6; v+=sy){
-    if(Math.abs(v) < sy*1e-6) continue;
-    const py = Y(v); if(py < b.y+fs*0.8 || py > b.y+b.h-fs*0.8) continue;
-    c.fillText(fmtNum(v,sy), lx, py);
+  if(fsPx >= 6){
+    // when an axis is off-screen, its numbers stay along the nearest visible edge
+    const rw = RENDER.win, flat = !o.rot;
+    const vX0 = flat ? Math.max(b.x, rw.x0) : b.x, vX1 = flat ? Math.min(b.x+b.w, rw.x1) : b.x+b.w;
+    const vY0 = flat ? Math.max(b.y, rw.y0) : b.y, vY1 = flat ? Math.min(b.y+b.h, rw.y1) : b.y+b.h;
+    const axL = clamp(ax, vY0, vY1), ayL = clamp(ay, vX0, vX1);
+    c.fillStyle = `rgba(${ink},.62)`; c.font = `500 ${fs}px ${UI_FONT}`;
+    c.textAlign = 'center'; c.textBaseline = 'top';
+    const ly = axL + fs*1.4 > vY1 ? axL - fs*1.3 : axL + fs*0.35;
+    for(const v of xs){
+      if(Math.abs(v) < sx*1e-6) continue;
+      const px = X(v); if(px < b.x+fs || px > b.x+b.w-fs) continue;
+      c.fillText(fmtNum(v,sx), px, ly);
+    }
+    const leftSide = ayL - fs*3 >= vX0;
+    c.textAlign = leftSide ? 'right' : 'left'; c.textBaseline = 'middle';
+    const lx = leftSide ? ayL - fs*0.45 : ayL + fs*0.45;
+    for(const v of ys){
+      if(Math.abs(v) < sy*1e-6) continue;
+      const py = Y(v); if(py < b.y+fs*0.8 || py > b.y+b.h-fs*0.8) continue;
+      c.fillText(fmtNum(v,sy), lx, py);
+    }
   }
 
-  const lw = Math.max(1.5, (o.size||3)*0.8);
+  const lw = Math.min(Math.max(1.5, (o.size||3)*0.8)*s, 3.2)/s;
   c.lineWidth = lw; c.lineJoin = 'round'; c.lineCap = 'round';
   gd.items.forEach((g,k)=>{
     const col = graphColor(o,k);
     c.strokeStyle = col; c.fillStyle = col;
-    if(g.cells){
-      // one path, one fill: overlapping cell edges can't double up into stripes
+    if(g.rows){
       c.save(); c.globalAlpha = 0.2; c.beginPath();
-      const cw = b.w/g.GX, ch = b.h/g.GY;
-      for(let j=0;j<g.GY;j++){
-        let run = -1;
-        for(let i=0;i<=g.GX;i++){
-          const on = i<g.GX && g.cells[j*g.GX+i];
-          if(on && run<0) run = i;
-          if(!on && run>=0){ c.rect(b.x+run*cw, b.y+b.h-(j+1)*ch, (i-run)*cw+0.6, ch+0.6); run = -1; }
-        }
+      for(let i=0;i<g.rows.length;i+=4){
+        const x0 = X(g.rows[i]), x1 = X(g.rows[i+2]), y0 = Y(g.rows[i+3]), y1 = Y(g.rows[i+1]);
+        c.moveTo(x0,y0); c.lineTo(x1,y0); c.lineTo(x1,y1); c.lineTo(x0,y1); c.closePath();
+      }
+      for(const p of g.polys){
+        c.moveTo(X(p[0]), Y(p[1]));
+        for(let i=2;i<p.length;i+=2) c.lineTo(X(p[i]), Y(p[i+1]));
+        c.closePath();
       }
       c.fill('nonzero'); c.restore();
     }
@@ -2454,26 +2583,28 @@ function drawGraph(c, o){
       c.font = `500 ${fs*0.9}px ${UI_FONT}`; c.textAlign = 'left'; c.textBaseline = 'bottom';
       for(const [px,py] of g.pts){
         c.beginPath(); c.arc(X(px), Y(py), lw*2.2, 0, TAU); c.fill();
-        c.fillText(`(${+px.toPrecision(4)}, ${+py.toPrecision(4)})`, X(px)+lw*3, Y(py)-lw*1.5);
+        if(fsPx >= 6) c.fillText(`(${+px.toPrecision(4)}, ${+py.toPrecision(4)})`, X(px)+lw*3, Y(py)-lw*1.5);
       }
     }
   });
   c.restore();
 
   // key, outlined in the board color so it stays readable over the curves
-  const kf = fs*0.9;
-  c.font = `600 ${kf}px ${UI_FONT}`; c.textAlign = 'left'; c.textBaseline = 'middle';
-  let ty = b.y + fs*1.05;
-  const keyLine = (text, col, swatch)=>{
-    const tx = b.x + fs*0.8;
-    if(swatch){ c.strokeStyle = col; c.lineWidth = lw; c.beginPath(); c.moveTo(tx,ty); c.lineTo(tx+fs*1.1,ty); c.stroke(); }
-    c.lineWidth = fs*0.32; c.strokeStyle = th.bg; c.lineJoin = 'round';
-    c.strokeText(text, tx+fs*1.6, ty);
-    c.fillStyle = col; c.fillText(text, tx+fs*1.6, ty);
-    ty += fs*1.4;
-  };
-  gd.items.forEach((g,k)=> keyLine(g.label, graphColor(o,k), true));
-  gd.constLines.forEach(cl=> keyLine(cl.label, `rgba(${ink},.6)`, false));
+  if(fsPx >= 6){
+    const kf = fs*0.95;
+    c.font = `600 ${kf}px ${UI_FONT}`; c.textAlign = 'left'; c.textBaseline = 'middle';
+    let ty = b.y + fs*1.05;
+    const keyLine = (text, col, swatch)=>{
+      const tx = b.x + fs*0.8;
+      if(swatch){ c.strokeStyle = col; c.lineWidth = lw; c.beginPath(); c.moveTo(tx,ty); c.lineTo(tx+fs*1.1,ty); c.stroke(); }
+      c.lineWidth = fs*0.32; c.strokeStyle = th.bg; c.lineJoin = 'round';
+      c.strokeText(text, tx+fs*1.6, ty);
+      c.fillStyle = col; c.fillText(text, tx+fs*1.6, ty);
+      ty += fs*1.4;
+    };
+    gd.items.forEach((g,k)=> keyLine(g.label, graphColor(o,k), true));
+    R.prog.constLines.forEach(cl=> keyLine(cl.label, `rgba(${ink},.6)`, false));
+  }
   c.restore();
 }
 
@@ -2509,37 +2640,20 @@ async function texToSvg(tex){
   return {svg:new XMLSerializer().serializeToString(svg), vw, vh,
           error: errNode ? (errNode.getAttribute('data-mjx-error') || 'Check the LaTeX') : null};
 }
-const eqSrcCache = new WeakMap();
-function eqSrc(o){
-  const hit = eqSrcCache.get(o);
-  if(hit && hit.color===o.color && hit.svg===o.svg) return hit.src;
-  const src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(o.svg.replace(/currentColor/g, o.color));
-  eqSrcCache.set(o, {color:o.color, svg:o.svg, src});
-  return src;
-}
-function drawEquation(c, o){
-  const im = getImg(eqSrc(o)), b = bbox(o), cx = b.x+b.w/2, cy = b.y+b.h/2;
-  if(!(im.complete && im.naturalWidth)) return;
-  c.save();
-  c.translate(cx,cy); c.rotate(o.rot||0); c.translate(-cx,-cy);
-  c.drawImage(im, b.x, b.y, b.w, b.h);
-  c.restore();
-}
 
 /* ================= ruler + protractor ================= */
 const CM = 37.795;           // world px per centimetre at 100%
 const KNOB = 14;
 const INST = {ruler:null, prot:null};
 let overInst = false;
-function instLocal(I, p){ const c=Math.cos(-I.a), s=Math.sin(-I.a), dx=p.x-I.x, dy=p.y-I.y; return {u:dx*c-dy*s, v:dx*s+dy*c}; }
-function instWorld(I, u, v){ const c=Math.cos(I.a), s=Math.sin(I.a); return {x:I.x+u*c-v*s, y:I.y+u*s+v*c}; }
+function instLocal(I, p){ const c=Math.cos(-I.a), s=Math.sin(-I.a), k=I.k||1, dx=p.x-I.x, dy=p.y-I.y; return {u:(dx*c-dy*s)/k, v:(dx*s+dy*c)/k}; }
+function instWorld(I, u, v){ const c=Math.cos(I.a), s=Math.sin(I.a), k=I.k||1; return {x:I.x+(u*c-v*s)*k, y:I.y+(u*s+v*c)*k}; }
 function rulerKnobs(R){ return {rot:{u:R.len/2-24, v:R.wid/2-17}, close:{u:-R.len/2+24, v:R.wid/2-17}}; }
 function protKnobs(P){ return {rot:{u:P.r*0.3, v:-P.r*0.2}, close:{u:-P.r*0.3, v:-P.r*0.2}}; }
 function instHit(wp){
-  const tol = PICK/view().s;
   const test = (key, inside, knobs)=>{
     const I = INST[key]; if(!I) return null;
-    const q = instLocal(I, wp), k = knobs(I);
+    const tol = PICK/(view().s*(I.k||1)), q = instLocal(I, wp), k = knobs(I);
     for(const kind of ['close','rot']) if(Math.hypot(q.u-k[kind].u, q.v-k[kind].v) <= KNOB+tol) return {key, kind};
     return inside(I,q) ? {key, kind:'move'} : null;
   };
@@ -2551,10 +2665,11 @@ function toggleInst(key){
   else {
     const s = view().s, c = S2W(W/2, H/2);
     if(key==='ruler'){
-      const cm = clamp(Math.floor(W*0.78/s/CM), 5, 30);
-      INST.ruler = {x:c.x, y:c.y - 60/s, a:0, len:cm*CM, wid:64};
+      const cm = clamp(Math.floor(W*0.78/CM), 5, 30);
+      INST.ruler = {x:c.x, y:c.y - 60/s, a:0, len:cm*CM, wid:64, k:1/s};
     } else {
-      INST.prot = {x:c.x, y:c.y + Math.min(170, H*0.3)/s*0.6, a:0, r:Math.min(170, H*0.3)/s};
+      const r = Math.min(170, H*0.3);
+      INST.prot = {x:c.x, y:c.y + r*0.6/s, a:0, r, k:1/s};
     }
   }
   syncMathPop();
@@ -2567,22 +2682,22 @@ function snapAngle(a, hard){
 }
 /* strokes started just outside an edge or the arc slide along it */
 function instGuide(wp){
-  const s = view().s, reach = 22/s, R = INST.ruler, P = INST.prot;
+  const s = view().s, R = INST.ruler, P = INST.prot;
   if(P){
-    const q = instLocal(P, wp), d = Math.hypot(q.u,q.v);
-    if(q.v < 0 && d > P.r-2/s && d < P.r+reach) return {kind:'arc', key:'prot'};
+    const u = s*(P.k||1), q = instLocal(P, wp), d = Math.hypot(q.u,q.v);
+    if(q.v < 0 && d > P.r-2/u && d < P.r+22/u) return {kind:'arc', key:'prot'};
   }
   if(R){
-    const q = instLocal(R, wp), h = R.wid/2;
-    if(Math.abs(q.u) <= R.len/2 && Math.abs(q.v) > h-2/s && Math.abs(q.v) < h+reach) return {kind:'edge', key:'ruler', side:Math.sign(q.v)||1};
+    const u = s*(R.k||1), q = instLocal(R, wp), h = R.wid/2;
+    if(Math.abs(q.u) <= R.len/2 && Math.abs(q.v) > h-2/u && Math.abs(q.v) < h+22/u) return {kind:'edge', key:'ruler', side:Math.sign(q.v)||1};
   }
   return null;
 }
 function guideProject(g, wp, half){
   const I = INST[g.key]; if(!I) return wp;
-  const q = instLocal(I, wp);
-  if(g.kind==='edge') return instWorld(I, clamp(q.u, -I.len/2, I.len/2), g.side*(I.wid/2 + half + 1));
-  const t = clamp(Math.atan2(-q.v, q.u), 0, Math.PI), rr = I.r + half + 1;
+  const q = instLocal(I, wp), hl = half/(I.k||1);
+  if(g.kind==='edge') return instWorld(I, clamp(q.u, -I.len/2, I.len/2), g.side*(I.wid/2 + hl + 1));
+  const t = clamp(Math.atan2(-q.v, q.u), 0, Math.PI), rr = I.r + hl + 1;
   return instWorld(I, Math.cos(t)*rr, -Math.sin(t)*rr);
 }
 function guideReading(g){
@@ -2602,10 +2717,12 @@ function drawKnob(c, k, kind, ink){
   c.stroke();
 }
 function drawInstruments(c){
-  const dark = THEMES[S.theme].dark, ink = dark ? '255,255,255' : '20,26,34', hair = 1/view().s;
+  const dark = THEMES[S.theme].dark, ink = dark ? '255,255,255' : '20,26,34';
   const R = INST.ruler;
+  let hair = 1;
   if(R){
-    c.save(); worldTransform(c); c.translate(R.x,R.y); c.rotate(R.a);
+    hair = 1/(view().s*(R.k||1));
+    c.save(); worldTransform(c); c.translate(R.x,R.y); c.rotate(R.a); c.scale(R.k||1, R.k||1);
     const x0 = -R.len/2, y0 = -R.wid/2;
     c.beginPath();
     if(c.roundRect) c.roundRect(x0,y0,R.len,R.wid,6); else c.rect(x0,y0,R.len,R.wid);
@@ -2625,7 +2742,8 @@ function drawInstruments(c){
   }
   const P = INST.prot;
   if(P){
-    c.save(); worldTransform(c); c.translate(P.x,P.y); c.rotate(P.a);
+    hair = 1/(view().s*(P.k||1));
+    c.save(); worldTransform(c); c.translate(P.x,P.y); c.rotate(P.a); c.scale(P.k||1, P.k||1);
     const r = P.r;
     c.beginPath(); c.moveTo(-r,0); c.arc(0,0,r,Math.PI,TAU); c.closePath();
     c.fillStyle = dark ? 'rgba(225,232,240,.14)' : 'rgba(30,40,55,.07)'; c.fill();
@@ -2806,7 +2924,10 @@ function drawGraphPreview(r){
   const g = c.getContext('2d'); g.setTransform(d,0,0,d,0,0);
   const x0 = r.x1>r.x0 ? r.x0 : -10, x1 = r.x1>r.x0 ? r.x1 : 10;
   const y0 = (r.y0!=null && r.y1>r.y0) ? r.y0 : null, y1 = y0==null ? null : r.y1;
-  drawGraph(g, {type:'graph', exprs:r.exprs, x0, x1, y0, y1, color:S.color, size:3, x:6, y:6, w:w-12, h:h-12, rot:0});
+  withExportRender(()=>{
+    RENDER.win = {x0:0, y0:0, x1:w, y1:h}; RENDER.s = 1;
+    drawGraph(g, {type:'graph', exprs:r.exprs, x0, x1, y0, y1, color:S.color, size:3, x:6, y:6, w:w-12, h:h-12, rot:0});
+  });
 }
 function openGraphDialog(existing){
   openDlg(existing ? 'Edit graph' : 'Graph', existing ? 'Save' : 'Add graph', GRAPH_HTML);
@@ -2931,6 +3052,627 @@ function syncMathPop(){
   $('mProtVal').textContent = INST.prot ? 'On' : 'Off';
 }
 
+/* ================= precise vector drawing =================
+   A stand-in for the canvas 2D context. Geometry stays in 64-bit floats and goes
+   either into an SVG file (export) or, for objects far bigger than the screen,
+   gets trimmed to the viewport before the real canvas ever sees a coordinate. */
+function mulM(a, b){ return [a[0]*b[0]+a[2]*b[1], a[1]*b[0]+a[3]*b[1], a[0]*b[2]+a[2]*b[3], a[1]*b[2]+a[3]*b[3], a[0]*b[4]+a[2]*b[5]+a[4], a[1]*b[4]+a[3]*b[5]+a[5]]; }
+function parseTransform(str){
+  let m = [1,0,0,1,0,0];
+  const re = /(matrix|translate|scale|rotate|skewX|skewY)\s*\(([^)]*)\)/g;
+  for(let t; (t = re.exec(str)); ){
+    const a = t[2].trim().split(/[\s,]+/).map(Number);
+    let n = [1,0,0,1,0,0];
+    if(t[1]==='matrix') n = a.slice(0,6);
+    else if(t[1]==='translate') n = [1,0,0,1,a[0]||0,a[1]||0];
+    else if(t[1]==='scale') n = [a[0], 0, 0, a.length>1 ? a[1] : a[0], 0, 0];
+    else if(t[1]==='rotate'){
+      const r = (a[0]||0)*Math.PI/180, c = Math.cos(r), s = Math.sin(r);
+      n = [c,s,-s,c,0,0];
+      if(a.length>2) n = mulM(mulM([1,0,0,1,a[1],a[2]], n), [1,0,0,1,-a[1],-a[2]]);
+    }
+    else if(t[1]==='skewX') n = [1,0,Math.tan((a[0]||0)*Math.PI/180),1,0,0];
+    else if(t[1]==='skewY') n = [1,Math.tan((a[0]||0)*Math.PI/180),0,1,0,0];
+    m = mulM(m, n);
+  }
+  return m;
+}
+/* SVG path data → calls on a canvas-like context (M L H V Q T C S Z, absolute and relative) */
+function tracePathData(ctx, d){
+  const tok = d.match(/[a-zA-Z]|[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?/g) || [];
+  let i = 0, cmd = '', x = 0, y = 0, sx = 0, sy = 0, qx = 0, qy = 0, cx2 = 0, cy2 = 0, prev = '';
+  const num = () => +tok[i++];
+  while(i < tok.length){
+    if(/[a-zA-Z]/.test(tok[i])) cmd = tok[i++];
+    const rel = cmd === cmd.toLowerCase(), C = cmd.toUpperCase(), ox = rel ? x : 0, oy = rel ? y : 0;
+    if(C==='Z'){ ctx.closePath(); x = sx; y = sy; prev = 'Z'; continue; }
+    if(i >= tok.length || /[a-zA-Z]/.test(tok[i])) continue;
+    if(C==='M'){ x = ox+num(); y = oy+num(); sx = x; sy = y; ctx.moveTo(x,y); cmd = rel ? 'l' : 'L'; }
+    else if(C==='L'){ x = ox+num(); y = oy+num(); ctx.lineTo(x,y); }
+    else if(C==='H'){ x = ox+num(); ctx.lineTo(x,y); }
+    else if(C==='V'){ y = oy+num(); ctx.lineTo(x,y); }
+    else if(C==='Q'){ qx = ox+num(); qy = oy+num(); x = ox+num(); y = oy+num(); ctx.quadraticCurveTo(qx,qy,x,y); }
+    else if(C==='T'){ if(prev==='Q'||prev==='T'){ qx = 2*x-qx; qy = 2*y-qy; } else { qx = x; qy = y; } x = ox+num(); y = oy+num(); ctx.quadraticCurveTo(qx,qy,x,y); }
+    else if(C==='C'){ const a1 = ox+num(), b1 = oy+num(); cx2 = ox+num(); cy2 = oy+num(); x = ox+num(); y = oy+num(); ctx.bezierCurveTo(a1,b1,cx2,cy2,x,y); }
+    else if(C==='S'){ const a1 = (prev==='C'||prev==='S') ? 2*x-cx2 : x, b1 = (prev==='C'||prev==='S') ? 2*y-cy2 : y; cx2 = ox+num(); cy2 = oy+num(); x = ox+num(); y = oy+num(); ctx.bezierCurveTo(a1,b1,cx2,cy2,x,y); }
+    else if(C==='A'){ num(); num(); num(); num(); num(); x = ox+num(); y = oy+num(); ctx.lineTo(x,y); }
+    else { i++; }
+    prev = C;
+  }
+}
+/* keep the part of a closed polygon inside a rectangle (Sutherland–Hodgman) */
+function clipPolygon(P, x0, y0, x1, y1){
+  const edges = [[0,x0,1],[0,x1,-1],[1,y0,1],[1,y1,-1]];
+  let out = P;
+  for(const [ax, val, sg] of edges){
+    const inp = out, n = inp.length/2; out = [];
+    if(n < 3) return [];
+    for(let i=0;i<n;i++){
+      const cx = inp[2*i], cy = inp[2*i+1], j = (i+n-1)%n, px = inp[2*j], py = inp[2*j+1];
+      const cIn = sg*((ax ? cy : cx) - val) >= 0, pIn = sg*((ax ? py : px) - val) >= 0;
+      if(cIn !== pIn){ const a = ax ? py : px, b = ax ? cy : cx, t = (val-a)/(b-a); out.push(px+(cx-px)*t, py+(cy-py)*t); }
+      if(cIn) out.push(cx, cy);
+    }
+  }
+  return out;
+}
+/* keep the part of a segment inside a rectangle (Liang–Barsky); returns [t0,t1] or null */
+function clipSegment(x0, y0, x1, y1, r){
+  let t0 = 0, t1 = 1; const dx = x1-x0, dy = y1-y0;
+  for(const [p, q] of [[-dx, x0-r.x0], [dx, r.x1-x0], [-dy, y0-r.y0], [dy, r.y1-y0]]){
+    if(p === 0){ if(q < 0) return null; continue; }
+    const t = q/p;
+    if(p < 0){ if(t > t1) return null; if(t > t0) t0 = t; }
+    else { if(t < t0) return null; if(t < t1) t1 = t; }
+  }
+  return [t0, t1];
+}
+const svgEsc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const fmt = v => { const r = Math.round(v*1000)/1000; return Object.is(r,-0) ? '0' : String(r); };
+function svgPaint(style){
+  if(typeof style !== 'string') return ['#000', 1];
+  const m = style.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)$/i);
+  if(m) return [`rgb(${m[1]},${m[2]},${m[3]})`, m[4]!=null ? +m[4] : 1];
+  const h = style.match(/^#([0-9a-f]{8})$/i);
+  if(h) return ['#' + h[1].slice(0,6), parseInt(h[1].slice(6),16)/255];
+  return [style, 1];
+}
+
+class VectorCtx {
+  constructor(mode, o){
+    this.__vector = true; this.mode = mode;
+    this.m = (o.m || [1,0,0,1,0,0]).slice();
+    this.real = o.real || null; this.win = o.win || null; this.tol = o.tol || 0.25;
+    this.measureCtx = o.measure || sctx;
+    this.st = {lineWidth:1, lineCap:'butt', lineJoin:'miter', miterLimit:10, strokeStyle:'#000', fillStyle:'#000',
+      globalAlpha:1, font:'10px sans-serif', textAlign:'start', textBaseline:'alphabetic', shadowBlur:0,
+      shadowColor:'rgba(0,0,0,0)', globalCompositeOperation:'source-over', dash:[], lineDashOffset:0};
+    this.stack = []; this.path = []; this.cur = null;
+    this.out = []; this.defs = []; this.ids = 0; this.groups = 0;
+  }
+  // ---- state
+  save(){ this.stack.push({st:{...this.st, dash:this.st.dash.slice()}, m:this.m.slice(), groups:this.groups}); this.groups = 0; if(this.real) this.real.save(); }
+  restore(){
+    const s = this.stack.pop(); if(!s) return;
+    for(; this.groups > 0; this.groups--) this.out.push('</g>');
+    this.st = s.st; this.m = s.m; this.groups = s.groups;
+    if(this.real) this.real.restore();
+  }
+  translate(x,y){ this.m = mulM(this.m, [1,0,0,1,x,y]); }
+  scale(x,y){ this.m = mulM(this.m, [x,0,0,y==null?x:y,0,0]); }
+  rotate(a){ const c = Math.cos(a), s = Math.sin(a); this.m = mulM(this.m, [c,s,-s,c,0,0]); }
+  transform(a,b,c,d,e,f){ this.m = mulM(this.m, [a,b,c,d,e,f]); }
+  setTransform(a,b,c,d,e,f){ this.m = [a,b,c,d,e,f]; }
+  setLineDash(a){ this.st.dash = (a||[]).slice(); }
+  getLineDash(){ return this.st.dash.slice(); }
+  measureText(t){ const c = this.measureCtx; c.save(); c.font = this.st.font; const r = c.measureText(t); c.restore(); return r; }
+  get scaleFactor(){ const m = this.m; return Math.sqrt(Math.abs(m[0]*m[3]-m[1]*m[2])); }
+  tp(x,y){ const m = this.m; return [m[0]*x+m[2]*y+m[4], m[1]*x+m[3]*y+m[5]]; }
+  // ---- path building, stored in device coordinates
+  beginPath(){ this.path = []; this.cur = null; }
+  moveTo(x,y){ const p = this.tp(x,y); this.cur = {start:p, last:p, cmds:[], closed:false}; this.path.push(this.cur); }
+  lineTo(x,y){ if(!this.cur) return this.moveTo(x,y); const p = this.tp(x,y); this.cur.cmds.push(['L',p[0],p[1]]); this.cur.last = p; }
+  quadraticCurveTo(a,b,x,y){ if(!this.cur) this.moveTo(a,b); const q = this.tp(a,b), p = this.tp(x,y); this.cur.cmds.push(['Q',q[0],q[1],p[0],p[1]]); this.cur.last = p; }
+  bezierCurveTo(a,b,c,d,x,y){ if(!this.cur) this.moveTo(a,b); const p1 = this.tp(a,b), p2 = this.tp(c,d), p = this.tp(x,y); this.cur.cmds.push(['C',p1[0],p1[1],p2[0],p2[1],p[0],p[1]]); this.cur.last = p; }
+  closePath(){ if(!this.cur) return; this.cur.closed = true; const s = this.cur.start; this.cur = {start:s, last:s, cmds:[], closed:false}; this.path.push(this.cur); }
+  rect(x,y,w,h){ this.moveTo(x,y); this.lineTo(x+w,y); this.lineTo(x+w,y+h); this.lineTo(x,y+h); this.closePath(); }
+  roundRect(x,y,w,h,r){
+    r = Math.max(0, Math.min(Array.isArray(r) ? r[0] : (r||0), Math.abs(w)/2, Math.abs(h)/2));
+    if(!r) return this.rect(x,y,w,h);
+    this.moveTo(x+r,y); this.lineTo(x+w-r,y); this.ellipse(x+w-r,y+r,r,r,0,-Math.PI/2,0);
+    this.lineTo(x+w,y+h-r); this.ellipse(x+w-r,y+h-r,r,r,0,0,Math.PI/2);
+    this.lineTo(x+r,y+h); this.ellipse(x+r,y+h-r,r,r,0,Math.PI/2,Math.PI);
+    this.lineTo(x,y+r); this.ellipse(x+r,y+r,r,r,0,Math.PI,Math.PI*1.5); this.closePath();
+  }
+  arc(x,y,r,a0,a1,ccw){ this.ellipse(x,y,r,r,0,a0,a1,ccw); }
+  ellipse(cx,cy,rx,ry,rot,a0,a1,ccw){
+    let sw = a1 - a0;
+    if(!ccw){ if(sw >= TAU) sw = TAU; else { sw %= TAU; if(sw < 0) sw += TAU; } }
+    else { if(-sw >= TAU) sw = -TAU; else { sw %= TAU; if(sw > 0) sw -= TAU; } }
+    const cr = Math.cos(rot||0), sr = Math.sin(rot||0);
+    const pt = t => [cx + rx*Math.cos(t)*cr - ry*Math.sin(t)*sr, cy + rx*Math.cos(t)*sr + ry*Math.sin(t)*cr];
+    const dv = t => [-rx*Math.sin(t)*cr - ry*Math.cos(t)*sr, -rx*Math.sin(t)*sr + ry*Math.cos(t)*cr];
+    const p0 = pt(a0);
+    if(this.cur) this.lineTo(p0[0], p0[1]); else this.moveTo(p0[0], p0[1]);
+    const n = Math.max(1, Math.ceil(Math.abs(sw)/(Math.PI/2) - 1e-9));
+    for(let i=0;i<n;i++){
+      const t0 = a0 + sw*i/n, t1 = a0 + sw*(i+1)/n, k = 4/3*Math.tan((t1-t0)/4);
+      const A = pt(t0), B = pt(t1), dA = dv(t0), dB = dv(t1);
+      this.bezierCurveTo(A[0]+k*dA[0], A[1]+k*dA[1], B[0]-k*dB[0], B[1]-k*dB[1], B[0], B[1]);
+    }
+  }
+  // ---- helpers
+  withPath(fn, build){ const saved = [this.path, this.cur]; this.beginPath(); build(); fn(); [this.path, this.cur] = saved; }
+  pathFrom(arg){
+    if(!(arg && typeof arg.d === 'string')) return this.path;
+    const saved = [this.path, this.cur]; this.beginPath(); tracePathData(this, arg.d);
+    const p = this.path; [this.path, this.cur] = saved; return p;
+  }
+  flatten(sp){
+    const pts = [sp.start[0], sp.start[1]]; let x = sp.start[0], y = sp.start[1];
+    const tol = this.tol, win = this.win;
+    const far = (xs, ys)=> win && (Math.max(...xs) < win.x0-1e4 || Math.min(...xs) > win.x1+1e4 || Math.max(...ys) < win.y0-1e4 || Math.min(...ys) > win.y1+1e4);
+    const quad = (x0,y0,qx,qy,x1,y1,d)=>{
+      const dd = Math.abs((qx-x0)*(y1-y0) - (qy-y0)*(x1-x0)) / (Math.hypot(x1-x0, y1-y0) || 1);
+      if(d > 18 || dd <= tol || far([x0,qx,x1],[y0,qy,y1])){ pts.push(x1,y1); return; }
+      const ax = (x0+qx)/2, ay = (y0+qy)/2, bx = (qx+x1)/2, by = (qy+y1)/2, mx = (ax+bx)/2, my = (ay+by)/2;
+      quad(x0,y0,ax,ay,mx,my,d+1); quad(mx,my,bx,by,x1,y1,d+1);
+    };
+    const cub = (x0,y0,a,b,c,e,x1,y1,d)=>{
+      const L = Math.hypot(x1-x0, y1-y0) || 1;
+      const d1 = Math.abs((a-x0)*(y1-y0) - (b-y0)*(x1-x0))/L, d2 = Math.abs((c-x0)*(y1-y0) - (e-y0)*(x1-x0))/L;
+      if(d > 18 || Math.max(d1,d2) <= tol || far([x0,a,c,x1],[y0,b,e,y1])){ pts.push(x1,y1); return; }
+      const ab = [(x0+a)/2,(y0+b)/2], bc = [(a+c)/2,(b+e)/2], cd = [(c+x1)/2,(e+y1)/2];
+      const abc = [(ab[0]+bc[0])/2,(ab[1]+bc[1])/2], bcd = [(bc[0]+cd[0])/2,(bc[1]+cd[1])/2], m = [(abc[0]+bcd[0])/2,(abc[1]+bcd[1])/2];
+      cub(x0,y0,ab[0],ab[1],abc[0],abc[1],m[0],m[1],d+1); cub(m[0],m[1],bcd[0],bcd[1],cd[0],cd[1],x1,y1,d+1);
+    };
+    for(const c of sp.cmds){
+      if(c[0]==='L') pts.push(c[1],c[2]);
+      else if(c[0]==='Q') quad(x,y,c[1],c[2],c[3],c[4],0);
+      else cub(x,y,c[1],c[2],c[3],c[4],c[5],c[6],0);
+      x = pts[pts.length-2]; y = pts[pts.length-1];
+    }
+    return pts;
+  }
+  dOf(path){
+    let d = '';
+    for(const sp of path){
+      if(!sp.cmds.length) continue;
+      d += `M${fmt(sp.start[0])} ${fmt(sp.start[1])}`;
+      for(const c of sp.cmds) d += c[0] + c.slice(1).map(fmt).join(' ');
+      if(sp.closed) d += 'Z';
+    }
+    return d;
+  }
+  // ---- painting
+  styleAttrs(kind){
+    const st = this.st, [col, a] = svgPaint(kind==='fill' ? st.fillStyle : st.strokeStyle);
+    let s = kind==='fill' ? ` fill="${col}"` : ` fill="none" stroke="${col}"`;
+    const op = st.globalAlpha * a;
+    if(op < 1) s += kind==='fill' ? ` fill-opacity="${fmt(op)}"` : ` stroke-opacity="${fmt(op)}"`;
+    if(kind==='stroke'){
+      const k = this.scaleFactor;
+      s += ` stroke-width="${fmt(st.lineWidth*k)}" stroke-linecap="${st.lineCap}" stroke-linejoin="${st.lineJoin}"`;
+      if(st.dash.length) s += ` stroke-dasharray="${st.dash.map(v=>fmt(v*k)).join(' ')}" stroke-dashoffset="${fmt(st.lineDashOffset*k)}"`;
+    }
+    if(st.shadowBlur > 0 && !/rgba\([^)]*,\s*0\s*\)|transparent/.test(st.shadowColor)){
+      const id = 'glow' + (this.ids++), [sc, sa] = svgPaint(st.shadowColor);
+      this.defs.push(`<filter id="${id}" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur in="SourceAlpha" stdDeviation="${fmt(st.shadowBlur/2)}"/><feFlood flood-color="${sc}" flood-opacity="${fmt(sa)}"/><feComposite operator="in" in2="SourceGraphic"/><feGaussianBlur stdDeviation="${fmt(st.shadowBlur/2)}" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`);
+      s += ` filter="url(#${id})"`;
+    }
+    return s;
+  }
+  applyReal(kind){
+    const r = this.real, st = this.st;
+    r.globalAlpha = st.globalAlpha; r.shadowBlur = st.shadowBlur; r.shadowColor = st.shadowColor;
+    r.globalCompositeOperation = st.globalCompositeOperation;
+    if(kind==='fill') r.fillStyle = st.fillStyle;
+    else { r.strokeStyle = st.strokeStyle; r.lineCap = st.lineCap; r.lineJoin = st.lineJoin; r.miterLimit = st.miterLimit; }
+  }
+  fill(a, b){
+    const path = (a && typeof a === 'object') ? this.pathFrom(a) : this.path;
+    const rule = typeof a === 'string' ? a : (typeof b === 'string' ? b : 'nonzero');
+    if(this.mode==='svg'){ const d = this.dOf(path); if(d) this.out.push(`<path d="${d}"${this.styleAttrs('fill')}${rule==='evenodd' ? ' fill-rule="evenodd"' : ''}/>`); return; }
+    const w = this.win, r = this.real; let any = false;
+    r.save(); r.setTransform(1,0,0,1,0,0); r.beginPath();
+    for(const sp of path){
+      if(!sp.cmds.length) continue;
+      const P = clipPolygon(this.flatten(sp), w.x0-2, w.y0-2, w.x1+2, w.y1+2);
+      if(P.length < 6) continue;
+      r.moveTo(P[0],P[1]); for(let i=2;i<P.length;i+=2) r.lineTo(P[i],P[i+1]); r.closePath(); any = true;
+    }
+    if(any){ this.applyReal('fill'); r.fill(rule); }
+    r.restore();
+  }
+  stroke(a){
+    const path = (a && typeof a === 'object') ? this.pathFrom(a) : this.path;
+    if(this.mode==='svg'){ const d = this.dOf(path); if(d) this.out.push(`<path d="${d}"${this.styleAttrs('stroke')}/>`); return; }
+    const k = this.scaleFactor, lw = this.st.lineWidth*k, r = this.real, w = this.win;
+    const pad = lw*(this.st.lineJoin==='miter' ? 3 : 0.6) + 4;
+    const R = {x0:w.x0-pad, y0:w.y0-pad, x1:w.x1+pad, y1:w.y1+pad};
+    r.save(); r.setTransform(1,0,0,1,0,0); this.applyReal('stroke');
+    if(lw > 2e5){
+      // too wide to hand over as a line: each segment becomes a filled band
+      r.fillStyle = this.st.strokeStyle; r.beginPath(); let any = false;
+      for(const sp of path){
+        if(!sp.cmds.length) continue;
+        const P = this.flatten(sp); if(sp.closed) P.push(P[0], P[1]);
+        for(let i=0;i+3<P.length;i+=2){
+          const x0 = P[i], y0 = P[i+1], x1 = P[i+2], y1 = P[i+3], L = Math.hypot(x1-x0, y1-y0) || 1;
+          const nx = -(y1-y0)/L*lw/2, ny = (x1-x0)/L*lw/2, ex = (x1-x0)/L*lw/2, ey = (y1-y0)/L*lw/2;
+          const Q = clipPolygon([x0-nx-ex,y0-ny-ey, x1-nx+ex,y1-ny+ey, x1+nx+ex,y1+ny+ey, x0+nx-ex,y0+ny-ey], w.x0-2, w.y0-2, w.x1+2, w.y1+2);
+          if(Q.length < 6) continue;
+          r.moveTo(Q[0],Q[1]); for(let j=2;j<Q.length;j+=2) r.lineTo(Q[j],Q[j+1]); r.closePath(); any = true;
+        }
+      }
+      if(any) r.fill('nonzero');
+      r.restore(); return;
+    }
+    r.lineWidth = lw;
+    const dash = this.st.dash.map(v=>v*k);
+    for(const sp of path){
+      if(!sp.cmds.length) continue;
+      const P = this.flatten(sp);
+      let inside = true;
+      for(let i=0;i<P.length;i+=2) if(P[i] < R.x0 || P[i] > R.x1 || P[i+1] < R.y0 || P[i+1] > R.y1){ inside = false; break; }
+      if(inside){
+        r.setLineDash(dash); r.lineDashOffset = this.st.lineDashOffset*k;
+        r.beginPath(); r.moveTo(P[0],P[1]); for(let i=2;i<P.length;i+=2) r.lineTo(P[i],P[i+1]);
+        if(sp.closed) r.closePath();
+        r.stroke(); continue;
+      }
+      if(sp.closed) P.push(P[0], P[1]);
+      let run = null, dist = 0;
+      const flush = ()=>{ if(run && run.pts.length >= 4){ r.setLineDash(dash); r.lineDashOffset = this.st.lineDashOffset*k + run.at; r.beginPath(); r.moveTo(run.pts[0], run.pts[1]); for(let i=2;i<run.pts.length;i+=2) r.lineTo(run.pts[i], run.pts[i+1]); r.stroke(); } run = null; };
+      for(let i=0;i+3<P.length;i+=2){
+        const x0 = P[i], y0 = P[i+1], x1 = P[i+2], y1 = P[i+3], L = Math.hypot(x1-x0, y1-y0);
+        const c = clipSegment(x0,y0,x1,y1,R);
+        if(!c){ flush(); dist += L; continue; }
+        const ax = x0+(x1-x0)*c[0], ay = y0+(y1-y0)*c[0], bx = x0+(x1-x0)*c[1], by = y0+(y1-y0)*c[1];
+        if(!run || c[0] > 0){ flush(); run = {pts:[ax,ay], at:dist + L*c[0]}; }
+        run.pts.push(bx,by);
+        if(c[1] < 1) flush();
+        dist += L;
+      }
+      flush();
+    }
+    r.restore();
+  }
+  clip(a){
+    const rule = typeof a === 'string' ? a : 'nonzero';
+    if(this.mode==='svg'){
+      const id = 'clip' + (this.ids++);
+      this.defs.push(`<clipPath id="${id}"><path d="${this.dOf(this.path)}"${rule==='evenodd' ? ' clip-rule="evenodd"' : ''}/></clipPath>`);
+      this.out.push(`<g clip-path="url(#${id})">`); this.groups++;
+      return;
+    }
+    const w = this.win, r = this.real;
+    r.setTransform(1,0,0,1,0,0); r.beginPath();
+    for(const sp of this.path){
+      if(!sp.cmds.length) continue;
+      const P = clipPolygon(this.flatten(sp), w.x0-4, w.y0-4, w.x1+4, w.y1+4);
+      if(P.length < 6) continue;
+      r.moveTo(P[0],P[1]); for(let i=2;i<P.length;i+=2) r.lineTo(P[i],P[i+1]); r.closePath();
+    }
+    r.clip(rule);
+  }
+  fillRect(x,y,w,h){ this.withPath(()=>this.fill(), ()=>this.rect(x,y,w,h)); }
+  strokeRect(x,y,w,h){ this.withPath(()=>this.stroke(), ()=>this.rect(x,y,w,h)); }
+  clearRect(){}
+  text(t, x, y, kind){
+    const st = this.st, m = this.m;
+    if(this.mode==='svg'){
+      const anchor = {left:'start', start:'start', center:'middle', right:'end', end:'end'}[st.textAlign] || 'start';
+      const base = {top:'text-before-edge', hanging:'hanging', middle:'central', bottom:'text-after-edge', ideographic:'ideographic'}[st.textBaseline] || 'alphabetic';
+      const paint = kind==='fill' ? this.styleAttrs('fill')
+        : this.styleAttrs('stroke').replace(/stroke-width="([^"]*)"/, (_, v)=>`stroke-width="${fmt(+v/this.scaleFactor)}"`);
+      this.out.push(`<text x="${fmt(x)}" y="${fmt(y)}" transform="matrix(${m.map(fmt).join(' ')})" style="font:${svgEsc(st.font)};white-space:pre" text-anchor="${anchor}" dominant-baseline="${base}"${paint}>${svgEsc(t)}</text>`);
+      return;
+    }
+    const p = this.tp(x,y), size = (parseFloat((st.font.match(/([\d.]+)px/)||[])[1]) || 10)*this.scaleFactor, w = this.win;
+    if(size > 3000 || size < 0.5 || p[0] < w.x0-4000 || p[0] > w.x1+4000 || p[1] < w.y0-4000 || p[1] > w.y1+4000) return;
+    const r = this.real;
+    r.save(); r.setTransform(m[0], m[1], m[2], m[3], p[0], p[1]); this.applyReal(kind);
+    r.font = st.font; r.textAlign = st.textAlign; r.textBaseline = st.textBaseline;
+    if(kind==='fill') r.fillText(t, 0, 0); else { r.lineWidth = st.lineWidth; r.lineJoin = st.lineJoin; r.strokeText(t, 0, 0); }
+    r.restore();
+  }
+  fillText(t,x,y){ this.text(t,x,y,'fill'); }
+  strokeText(t,x,y){ this.text(t,x,y,'stroke'); }
+  drawImage(img, x, y, w, h){
+    const m = this.m, st = this.st;
+    if(this.mode==='svg'){
+      this.out.push(`<image href="${svgEsc(img.src)}" x="${fmt(x)}" y="${fmt(y)}" width="${fmt(w)}" height="${fmt(h)}" preserveAspectRatio="none" transform="matrix(${m.map(fmt).join(' ')})"${st.globalAlpha<1 ? ` opacity="${fmt(st.globalAlpha)}"` : ''}/>`);
+      return;
+    }
+    const r = this.real, win = this.win, a = this.tp(x,y), b = this.tp(x+w,y+h);
+    if(Math.abs(m[1]) < 1e-12 && Math.abs(m[2]) < 1e-12){
+      const X0 = Math.min(a[0],b[0]), X1 = Math.max(a[0],b[0]), Y0 = Math.min(a[1],b[1]), Y1 = Math.max(a[1],b[1]);
+      const vx0 = Math.max(X0, win.x0), vx1 = Math.min(X1, win.x1), vy0 = Math.max(Y0, win.y0), vy1 = Math.min(Y1, win.y1);
+      if(vx1 <= vx0 || vy1 <= vy0) return;
+      const nw = img.naturalWidth || img.width, nh = img.naturalHeight || img.height;
+      const fx = t => (t-X0)/(X1-X0), fy = t => (t-Y0)/(Y1-Y0);
+      const flipX = b[0] < a[0], flipY = b[1] < a[1];
+      let sx0 = fx(vx0), sx1 = fx(vx1), sy0 = fy(vy0), sy1 = fy(vy1);
+      if(flipX) [sx0, sx1] = [1-sx1, 1-sx0]; if(flipY) [sy0, sy1] = [1-sy1, 1-sy0];
+      r.save(); r.setTransform(1,0,0,1,0,0); r.globalAlpha = st.globalAlpha;
+      r.drawImage(img, sx0*nw, sy0*nh, Math.max(1e-3,(sx1-sx0)*nw), Math.max(1e-3,(sy1-sy0)*nh), vx0, vy0, vx1-vx0, vy1-vy0);
+      r.restore(); return;
+    }
+    if(Math.max(Math.abs(a[0]),Math.abs(a[1]),Math.abs(b[0]),Math.abs(b[1])) > 1e6) return;
+    r.save(); r.setTransform(...m); r.globalAlpha = st.globalAlpha; r.drawImage(img, x, y, w, h); r.restore();
+  }
+}
+for(const k of ['lineWidth','lineCap','lineJoin','miterLimit','strokeStyle','fillStyle','globalAlpha','font','textAlign','textBaseline','shadowBlur','shadowColor','globalCompositeOperation','lineDashOffset'])
+  Object.defineProperty(VectorCtx.prototype, k, {get(){ return this.st[k]; }, set(v){ this.st[k] = v; }});
+
+/* ================= equations as vector outlines =================
+   MathJax's SVG is unpacked once into glyph outlines that are filled straight onto
+   the canvas, so an equation is as sharp as a pen stroke at any zoom. */
+const eqGlyphCache = new Map();
+function eqGlyphs(svg){
+  if(!svg) return null;
+  let G = eqGlyphCache.get(svg);
+  if(G !== undefined) return G;
+  G = null;
+  try{
+    const doc = new DOMParser().parseFromString(svg, 'image/svg+xml'), root = doc.documentElement;
+    const vb = (root.getAttribute('viewBox')||'').split(/[\s,]+/).map(Number);
+    if(root.nodeName.toLowerCase()==='svg' && vb.length===4 && vb[2]>0 && vb[3]>0){
+      const items = [];
+      const num = (el, a) => parseFloat(el.getAttribute(a)) || 0;
+      const walk = (el, M, style, clip)=>{
+        for(const ch of el.children){
+          const tag = ch.nodeName.toLowerCase();
+          const m = ch.hasAttribute('transform') ? mulM(M, parseTransform(ch.getAttribute('transform'))) : M;
+          const st = {fill: ch.getAttribute('fill') ?? style.fill, stroke: ch.getAttribute('stroke') ?? style.stroke,
+                      sw: ch.hasAttribute('stroke-width') ? parseFloat(ch.getAttribute('stroke-width')) : style.sw};
+          const add = d => items.push({d, m, fill:st.fill, stroke:st.stroke, sw:st.sw, clip});
+          if(tag==='g') walk(ch, m, st, clip);
+          else if(tag==='svg'){
+            const x = num(ch,'x'), y = num(ch,'y'), w = num(ch,'width'), h = num(ch,'height');
+            const v2 = (ch.getAttribute('viewBox')||'').split(/[\s,]+/).map(Number);
+            // clip to this nested viewport, in root units (MathJax only nests with translate/scale)
+            const p0 = [m[0]*x+m[2]*y+m[4], m[1]*x+m[3]*y+m[5]], p1 = [m[0]*(x+w)+m[2]*(y+h)+m[4], m[1]*(x+w)+m[3]*(y+h)+m[5]];
+            let c2 = [Math.min(p0[0],p1[0]), Math.min(p0[1],p1[1]), Math.abs(p1[0]-p0[0]), Math.abs(p1[1]-p0[1])];
+            if(clip){ const x0 = Math.max(c2[0],clip[0]), y0 = Math.max(c2[1],clip[1]), x1 = Math.min(c2[0]+c2[2],clip[0]+clip[2]), y1 = Math.min(c2[1]+c2[3],clip[1]+clip[3]); c2 = [x0, y0, Math.max(0,x1-x0), Math.max(0,y1-y0)]; }
+            let m2 = mulM(m, [1,0,0,1,x,y]);
+            if(v2.length===4 && v2[2]>0 && v2[3]>0) m2 = mulM(mulM(m2, [w/v2[2],0,0,h/v2[3],0,0]), [1,0,0,1,-v2[0],-v2[1]]);
+            walk(ch, m2, st, c2);
+          }
+          else if(tag==='path'){ const d = ch.getAttribute('d'); if(d) add(d); }
+          else if(tag==='rect'){ const x = num(ch,'x'), y = num(ch,'y'), w = num(ch,'width'), h = num(ch,'height'); if(w>0 && h>0) add(`M${x} ${y}H${x+w}V${y+h}H${x}Z`); }
+          else if(tag==='line'){ items.push({d:`M${num(ch,'x1')} ${num(ch,'y1')}L${num(ch,'x2')} ${num(ch,'y2')}`, m, fill:'none', stroke:st.stroke==='none' ? 'currentColor' : st.stroke, sw:st.sw||1, clip}); }
+          else if(tag==='polygon' || tag==='polyline'){ const p = (ch.getAttribute('points')||'').trim(); if(p) add('M' + p.replace(/\s+/g,' ') + (tag==='polygon' ? 'Z' : '')); }
+          else if(tag==='circle' || tag==='ellipse'){
+            const cx = num(ch,'cx'), cy = num(ch,'cy'), rx = tag==='circle' ? num(ch,'r') : num(ch,'rx'), ry = tag==='circle' ? rx : num(ch,'ry'), k = 0.5523;
+            add(`M${cx+rx} ${cy}C${cx+rx} ${cy+ry*k} ${cx+rx*k} ${cy+ry} ${cx} ${cy+ry}C${cx-rx*k} ${cy+ry} ${cx-rx} ${cy+ry*k} ${cx-rx} ${cy}C${cx-rx} ${cy-ry*k} ${cx-rx*k} ${cy-ry} ${cx} ${cy-ry}C${cx+rx*k} ${cy-ry} ${cx+rx} ${cy-ry*k} ${cx+rx} ${cy}Z`);
+          }
+        }
+      };
+      walk(root, [1,0,0,1,0,0], {fill:'currentColor', stroke:'none', sw:0}, null);
+      G = {vb, items};
+    }
+  }catch(e){ G = null; }
+  eqGlyphCache.set(svg, G);
+  return G;
+}
+function glyphPath(it){ return it.p2d || (it.p2d = new Path2D(it.d)); }
+function drawEquation(c, o){
+  const G = eqGlyphs(o.svg); if(!G) return;
+  const b = bbox(o), cx = b.x+b.w/2, cy = b.y+b.h/2, col = v => v==='currentColor' ? o.color : v;
+  c.save();
+  c.translate(cx,cy); c.rotate(o.rot||0); c.translate(-cx,-cy);
+  c.translate(b.x, b.y); c.scale(b.w/G.vb[2], b.h/G.vb[3]); c.translate(-G.vb[0], -G.vb[1]);
+  for(const it of G.items){
+    const doFill = it.fill && it.fill!=='none', doStroke = it.stroke && it.stroke!=='none' && it.sw > 0;
+    if(!doFill && !doStroke) continue;
+    c.save();
+    if(it.clip){ c.beginPath(); c.rect(it.clip[0], it.clip[1], it.clip[2], it.clip[3]); c.clip(); }
+    c.transform(...it.m);
+    const p = c.__vector ? it : glyphPath(it);
+    if(doFill){ c.fillStyle = col(it.fill); c.fill(p); }
+    if(doStroke){ c.strokeStyle = col(it.stroke); c.lineWidth = it.sw; c.stroke(p); }
+    c.restore();
+  }
+  c.restore();
+}
+
+/* ================= infinite zoom =================
+   Positions are kept as exact binary fractions (BigInt / 2^e). Each page has a
+   base point and level; the numbers the rest of the app works with are just a
+   float64 view relative to that base, re-derived from the exact values whenever
+   the camera moves far or zooms more than 16x. Nothing ever loses precision. */
+const HP0 = {m:0n, e:0};
+function ldexp(x, k){ while(k > 1000){ x *= 2**1000; k -= 1000; } while(k < -1000){ x *= 2**-1000; k += 1000; } return x * 2**k; }
+function hpNorm(a){
+  if(a.m === 0n) return HP0;
+  const low = a.m & -a.m, tz = low.toString(2).length - 1;
+  return tz ? {m: a.m >> BigInt(tz), e: a.e - tz} : a;
+}
+function hpFromFloat(f, z){                 // exactly f · 2^-z
+  if(!f || !isFinite(f)) return HP0;
+  const ex = Math.floor(Math.log2(Math.abs(f))) - 54;
+  return hpNorm({m: BigInt(Math.round(ldexp(f, -ex))), e: z - ex});
+}
+function hpAdd(a, b){
+  if(a.m === 0n) return b; if(b.m === 0n) return a;
+  const E = Math.max(a.e, b.e);
+  return hpNorm({m: (a.m << BigInt(E - a.e)) + (b.m << BigInt(E - b.e)), e: E});
+}
+function hpSub(a, b){ return hpAdd(a, {m: -b.m, e: b.e}); }
+function hpToFloat(a, z){                   // a · 2^z as a float
+  if(a.m === 0n) return 0;
+  const bits = a.m.toString(16).replace('-','').length*4;
+  if(bits <= 52) return ldexp(Number(a.m), z - a.e);
+  const sh = bits - 60;
+  return ldexp(Number(a.m >> BigInt(sh)), sh + z - a.e);
+}
+const hpSer = a => [a.m.toString(), a.e];
+const hpDe = a => Array.isArray(a) ? {m: BigInt(a[0]), e: +a[1]} : HP0;
+function baseOf(pg){ return pg.base || (pg.base = {x:HP0, y:HP0, z:0}); }
+
+function geoSig(o){
+  if(o.type==='stroke'){ const P = o.points, a = P[0], b = P[P.length-1]; return `${P.length}|${a.x}|${a.y}|${b.x}|${b.y}|${o.size}`; }
+  return `${o.x}|${o.y}|${o.w}|${o.h}|${o.size}`;
+}
+/* record the exact position of an object from its current on-screen numbers */
+function syncExact(o, B){
+  const a = o.type==='stroke' ? o.points[0] : o;
+  const P = {ox: hpAdd(B.x, hpFromFloat(a.x, B.z)), oy: hpAdd(B.y, hpFromFloat(a.y, B.z)), z: B.z, w:o.w, h:o.h, size:o.size};
+  if(o.type==='stroke'){ const d = new Float64Array(o.points.length*2); o.points.forEach((p,i)=>{ d[2*i] = p.x-a.x; d[2*i+1] = p.y-a.y; }); P.pts = d; }
+  o._P = P; o._sig = geoSig(o);
+}
+/* rebuild an object's working numbers for a base; objects absurdly bigger or
+   smaller than the view are parked until you zoom back towards them */
+function deriveFrom(o, B){
+  const P = o._P, k = B.z - P.z;
+  if(k > 42 || k < -48){ o._off = true; return; }
+  const r = 2**k, ax = hpToFloat(hpSub(P.ox, B.x), B.z), ay = hpToFloat(hpSub(P.oy, B.y), B.z);
+  if(!(Math.abs(ax) < 2**60 && Math.abs(ay) < 2**60)){ o._off = true; return; }
+  o._off = false;
+  if(o.type==='stroke'){ for(let i=0;i<o.points.length;i++){ o.points[i].x = ax + P.pts[2*i]*r; o.points[i].y = ay + P.pts[2*i+1]*r; } o._bb = null; }
+  else { o.x = ax; o.y = ay; }
+  if(P.w != null) o.w = P.w*r;
+  if(P.h != null) o.h = P.h*r;
+  if(P.size != null) o.size = P.size*r;
+  o._sig = geoSig(o);
+}
+function rebasePage(pg, nb){
+  const all = new Set(pg.objects);
+  for(const snap of pg.undo) for(const o of snap) all.add(o);
+  for(const snap of pg.redo) for(const o of snap) all.add(o);
+  const B = baseOf(pg);
+  for(const o of all) if(!o._off && (!o._P || o._sig !== geoSig(o))) syncExact(o, B);
+  pg.base = nb;
+  for(const o of all) if(o._P) deriveFrom(o, nb);
+  S.selection = S.selection.filter(o=>!o._off);
+}
+/* keep the camera near the origin at about 1:1, moving the base instead */
+function maybeRebase(force){
+  const pg = page(), v = pg.view;
+  if(drag || gesture || editing || live || dlgOpen()) return;
+  const k = (v.s >= 16 || v.s < 1/16) ? Math.round(Math.log2(v.s)) : 0;
+  const cx = (W/2 - v.x)/v.s, cy = (H/2 - v.y)/v.s;
+  if(!force && !k && Math.abs(cx) < 2**20 && Math.abs(cy) < 2**20) return;
+  const B = baseOf(pg), f = 2**k;
+  const nb = {x: hpAdd(B.x, hpFromFloat(cx, B.z)), y: hpAdd(B.y, hpFromFloat(cy, B.z)), z: B.z + k};
+  for(const I of [INST.ruler, INST.prot]) if(I){ I.x = (I.x-cx)*f; I.y = (I.y-cy)*f; I.k = (I.k||1)*f; }
+  laser = [];
+  rebasePage(pg, nb);
+  v.s = v.s/f; v.x = W/2; v.y = H/2;
+  sceneDirty = true; updateZoomLabel();
+}
+/* back to the starting point at 100% */
+function resetView(){
+  if(editing) closeTextEditor();
+  const pg = page(), B = baseOf(pg);
+  if(!drag){
+    for(const I of [INST.ruler, INST.prot]) if(I){
+      const f = 2**-B.z;
+      I.x = hpToFloat(hpAdd(B.x, hpFromFloat(I.x, B.z)), 0); I.y = hpToFloat(hpAdd(B.y, hpFromFloat(I.y, B.z)), 0); I.k = (I.k||1)*f;
+    }
+    rebasePage(pg, {x:HP0, y:HP0, z:0});
+  }
+  const v = pg.view; v.x = 0; v.y = 0; v.s = 1; sceneDirty = true; updateZoomLabel();
+}
+function trueZoomLog10(){ return Math.log10(view().s) + baseOf(page()).z*Math.LOG10E*Math.LN2; }
+function updateZoomLabel(){
+  const lz = trueZoomLog10();
+  let t;
+  if(lz > -2.5 && lz < 3.5) t = Math.round(10**lz*100).toLocaleString() + '%';
+  else {
+    let n = Math.floor(lz), mant = 10**(lz-n);
+    if(mant >= 9.95){ mant = 1; n++; }
+    t = mant.toFixed(1) + '×10' + String(n).replace(/-/g,'⁻').replace(/\d/g, d=>'⁰¹²³⁴⁵⁶⁷⁸⁹'[d]);
+  }
+  $('zoomPct').textContent = t;
+}
+
+/* ================= rendering what's in view ================= */
+function worldBounds(o){
+  if(o.rot){ const b = unionBox([o]); return {x0:b.x, y0:b.y, x1:b.x+b.w, y1:b.y+b.h}; }
+  const b = bbox(o), x0 = Math.min(b.x, b.x+b.w), y0 = Math.min(b.y, b.y+b.h);
+  const pad = (o.type==='line' || o.type==='arrow' || o.type==='rect' || o.type==='ellipse' || o.type==='triangle') ? (o.size||0)*2 : 0;
+  return {x0:x0-pad, y0:y0-pad, x1:x0+Math.abs(b.w)+pad, y1:y0+Math.abs(b.h)+pad};
+}
+/* draw objects through matrix M (world → device px), skipping anything outside
+   devWin and handing objects too big for the canvas to the precise path */
+function renderObjects(real, objs, M, devWin){
+  const k = M[0], inv = 1/k;
+  const win = {x0:(devWin.x0-M[4])*inv, y0:(devWin.y0-M[5])*inv, x1:(devWin.x1-M[4])*inv, y1:(devWin.y1-M[5])*inv};
+  const mx = (win.x1-win.x0)*0.02, my = (win.y1-win.y0)*0.02;
+  RENDER.win = win; RENDER.s = k/(RENDER.exporting ? 1 : dpr);
+  real.setTransform(...M);
+  let drawn = 0;
+  for(const o of objs){
+    if(o._off) continue;
+    const b = worldBounds(o);
+    if(b.x1 < win.x0-mx || b.x0 > win.x1+mx || b.y1 < win.y0-my || b.y0 > win.y1+my) continue;
+    const px = Math.max(b.x1-b.x0, b.y1-b.y0)*k;
+    if(px < 0.2) continue;
+    if(px < 2 && o.type==='stroke'){
+      // a speck on screen: a dot of its colour is indistinguishable and far cheaper
+      real.globalAlpha = opacityFor(o); real.fillStyle = o.color;
+      real.fillRect(b.x0, b.y0, Math.max(b.x1-b.x0, 1/k), Math.max(b.y1-b.y0, 1/k));
+      real.globalAlpha = 1; drawn++; continue;
+    }
+    const d = Math.max(Math.abs(b.x0*k+M[4]), Math.abs(b.x1*k+M[4]), Math.abs(b.y0*k+M[5]), Math.abs(b.y1*k+M[5]));
+    if(d > 2e5){
+      drawObject(new VectorCtx('clip', {m:M, real, win:devWin, measure:real}), o);
+      real.setTransform(...M);
+    } else drawObject(real, o);
+    drawn++;
+  }
+  return drawn;
+}
+
+/* ================= export: PNG and SVG ================= */
+function exportBox(){
+  const objs = page().objects.filter(o=>!o._off);
+  const a = S2W(0,0), b = S2W(W,H), viewBox = {x:a.x, y:a.y, w:b.x-a.x, h:b.y-a.y};
+  if(!objs.length) return {box:viewBox, objs};
+  let x0 = 1e300, y0 = 1e300, x1 = -1e300, y1 = -1e300;
+  for(const o of objs){ const r = worldBounds(o); x0 = Math.min(x0,r.x0); y0 = Math.min(y0,r.y0); x1 = Math.max(x1,r.x1); y1 = Math.max(y1,r.y1); }
+  // something enormous next to tiny details: export what's in view instead
+  if((x1-x0) > viewBox.w*1e4 || (y1-y0) > viewBox.h*1e4) return {box:viewBox, objs};
+  const pad = Math.max(x1-x0, y1-y0)*0.04 || 24/view().s;
+  return {box:{x:x0-pad, y:y0-pad, w:(x1-x0)+pad*2, h:(y1-y0)+pad*2}, objs};
+}
+function withExportRender(fn){
+  const saved = {win:RENDER.win, s:RENDER.s, exporting:RENDER.exporting};
+  RENDER.exporting = true;
+  try{ return fn(); } finally { Object.assign(RENDER, saved); sceneDirty = true; }
+}
+function exportPNG(){
+  const {box, objs} = exportBox();
+  const long = 4096, k = long/Math.max(box.w, box.h);
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.min(8192, Math.round(box.w*k))); c.height = Math.max(1, Math.min(8192, Math.round(box.h*k)));
+  const g = c.getContext('2d'), th = THEMES[S.theme];
+  const grad = g.createLinearGradient(0,0,c.width*.35,c.height);
+  grad.addColorStop(0,th.bg); grad.addColorStop(1,th.bg2);
+  g.fillStyle = grad; g.fillRect(0,0,c.width,c.height);
+  withExportRender(()=> renderObjects(g, objs, [k,0,0,k,-box.x*k,-box.y*k], {x0:0, y0:0, x1:c.width, y1:c.height}));
+  c.toBlob(b=>download(b, `Screenboard ${stamp()}.png`), 'image/png');
+  toast('Exported a PNG.');
+}
+function exportSVG(){
+  const {box, objs} = exportBox();
+  const long = 1600, k = long/Math.max(box.w, box.h), w = box.w*k, h = box.h*k;
+  const vc = new VectorCtx('svg', {m:[k,0,0,k,-box.x*k,-box.y*k], tol:0.08, measure:sctx});
+  withExportRender(()=>{
+    RENDER.win = {x0:box.x, y0:box.y, x1:box.x+box.w, y1:box.y+box.h}; RENDER.s = k;
+    for(const o of objs){ if(o._off) continue; vc.setTransform(k,0,0,k,-box.x*k,-box.y*k); drawObject(vc, o); }
+  });
+  const th = THEMES[S.theme];
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${fmt(w)}" height="${fmt(h)}" viewBox="0 0 ${fmt(w)} ${fmt(h)}">`
+    + `<defs><linearGradient id="bg" x1="0" y1="0" x2="${fmt(w*.35)}" y2="${fmt(h)}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${th.bg}"/><stop offset="1" stop-color="${th.bg2}"/></linearGradient>${vc.defs.join('')}</defs>`
+    + `<rect width="100%" height="100%" fill="url(#bg)"/>${vc.out.join('')}</svg>`;
+  download(new Blob([svg], {type:'image/svg+xml'}), `Screenboard ${stamp()}.svg`);
+  toast('Exported an SVG.');
+}
+
 /* ---------------- chrome ---------------- */
 const TOOL_SIZE = Object.assign({}, DEFAULT_SIZE);
 S.shape = 'arrow';
@@ -3052,7 +3794,7 @@ function applySize(v){
   syncStyle();
   if(S.selection.length){
     pushUndo();
-    beginEdit(S.selection).forEach(o=>{ if(o.type!=='image'){ o.size = S.size; o._bb = null; } });
+    beginEdit(S.selection).forEach(o=>{ if(o.type!=='image'){ o.size = S.size/view().s; o._bb = null; } });
     sceneDirty = true;
   }
 }
@@ -3066,7 +3808,7 @@ $('size').addEventListener('input', e=>{
   if(TOOL_SIZE[S.tool]!=null) TOOL_SIZE[S.tool] = S.size;
   syncStyle();
   if(sizeEdit){
-    sizeEdit.forEach(o=>{ if(o.type!=='image'){ o.size = S.size; o._bb = null; } });
+    sizeEdit.forEach(o=>{ if(o.type!=='image'){ o.size = S.size/view().s; o._bb = null; } });
     sceneDirty = true;
   }
 });
@@ -3141,6 +3883,8 @@ document.querySelectorAll('#menu .mi').forEach(b=>{
   b.addEventListener('click', closePops);
 });
 $('dupBtn').onclick   = ()=> duplicateSelection();
+$('pngBtn').onclick = ()=> exportPNG();
+$('svgBtn').onclick = ()=> exportSVG();
 $('editBtn').onclick  = ()=>{ if(S.selection.length===1) editObject(S.selection[0]); };
 $('graphBtn').onclick = ()=>{ const lines = selectionGraphLines(); if(lines) graphLines(lines, S.selection[0]); };
 $('mGraph').onclick = ()=>{ closePops(); openGraphDialog(null); };
@@ -3228,9 +3972,9 @@ window.addEventListener('keydown', e=>{
     if(k==='y'){ e.preventDefault(); redo(); return; }
     if(k==='s'){ e.preventDefault(); saveBoards(); return; }
     if(k==='o'){ e.preventDefault(); $('fileOpen').click(); return; }
-    if(k==='e'){ e.preventDefault(); exportPNG(); return; }
+    if(k==='e'){ e.preventDefault(); e.shiftKey ? exportSVG() : exportPNG(); return; }
     if(k==='n'){ e.preventDefault(); $('addPage').click(); return; }
-    if(k==='a'){ e.preventDefault(); setTool('select'); S.selection = page().objects.slice(); return; }
+    if(k==='a'){ e.preventDefault(); setTool('select'); S.selection = page().objects.filter(o=>!o._off); return; }
     if(k==='d'){ e.preventDefault(); duplicateSelection(); return; }
     if(k==='0'){ e.preventDefault(); resetView(); return; }
     if(k===']'){ e.preventDefault(); reorder(1); return; }
@@ -3270,8 +4014,9 @@ function duplicateSelection(){
   pushUndo();
   const p = page(), copies = S.selection.map(o=>{
     const c = cloneObj(o); c.id = uid();
-    if(c.points){ c.points.forEach(q=>{ q.x+=18; q.y+=18; }); c._bb=null; }
-    else { c.x+=18; c.y+=18; }
+    const d = 18/view().s;
+    if(c.points){ c.points.forEach(q=>{ q.x+=d; q.y+=d; }); c._bb=null; }
+    else { c.x+=d; c.y+=d; }
     return c;
   });
   p.objects.push(...copies);
