@@ -464,6 +464,7 @@
       <div class="row"><span>Paste a photo</span><em>Ctrl V</em></div>
       <div class="row"><span>Duplicate</span><em>Ctrl D</em></div>
       <div class="row"><span>Group, ungroup</span><em>Ctrl G, Ctrl Shift G</em></div>
+      <div class="row"><span>Box-select with any tool</span><em>Right-drag</em></div>
       <div class="row"><span>Delete selection</span><em>Del</em></div>
       <div class="row"><span>Front, back</span><em>Ctrl ] , Ctrl [</em></div>
       <div class="row"><span>New board</span><em>Ctrl N</em></div>
@@ -1240,7 +1241,16 @@ function moveGesture(){
 }
 
 function onDown(e){
-  if(e.button===2) return;
+  if(e.button===2){
+    // right-drag: box-select with any tool
+    if(drag) return;
+    $('hint')?.remove(); closeTextEditor(); closePops();
+    cv.setPointerCapture(e.pointerId);
+    if(!e.shiftKey) S.selection = [];
+    marquee = {x1:e.clientX, y1:e.clientY, x2:e.clientX, y2:e.clientY};
+    drag = {mode:'marquee', right:true};
+    return;
+  }
   $('hint')?.remove();
   pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
   if(pointers.size===2){ cancelActiveDrag(); startGesture(); return; }
@@ -1407,7 +1417,12 @@ function onUp(e){
   }
   else if(mode==='erase'){ if(!drag.erased){ const p=page(); p.undo.pop(); syncHistoryButtons(); } }
   else if(mode==='laser'){ /* fades on its own */ }
-  else endSelect();
+  else {
+    const rightBox = drag.mode==='marquee' && drag.right;
+    endSelect();
+    // something was boxed with the right button: switch to Select so it can be moved straight away
+    if(rightBox && S.selection.length && S.tool!=='select'){ const keep = S.selection; setTool('select'); S.selection = keep; }
+  }
   drag = null;
   updateCursor();
 }
