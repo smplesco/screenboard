@@ -511,6 +511,25 @@
 
   /* ---- minimap ---- */
   #minimap{position:fixed;z-index:6;border-radius:10px;box-shadow:var(--elev), inset 0 0 0 1px var(--hair);cursor:pointer;touch-action:none}
+
+  /* ---- network check ---- */
+  .nc{display:flex;flex-direction:column;gap:12px;margin:4px 0 14px}
+  .nc-row{display:flex;gap:12px;align-items:flex-start}
+  .nc-row b{display:block;font-size:13.5px;font-weight:600}
+  .nc-row span{display:block;font-size:12.5px;color:var(--fg-dim);margin-top:2px;line-height:1.4}
+  .nc-i{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:12px;font-weight:700;margin-top:1px}
+  .nc-i.ok{background:rgba(64,192,87,.2);color:#8ce99a}
+  .nc-i.bad{background:rgba(250,82,82,.2);color:#ffa8a8}
+  .nc-i.warn{background:rgba(250,176,5,.2);color:#ffd43b}
+  .nc-i.run{box-shadow:inset 0 0 0 2px rgba(255,255,255,.15);border-top:2px solid #e9ecf1;animation:ncSpin .8s linear infinite}
+  @keyframes ncSpin{to{transform:rotate(360deg)}}
+  .nc-v{padding:12px 14px;border-radius:10px;display:flex;flex-direction:column;gap:4px}
+  .nc-v b{font-size:14px}
+  .nc-v span{font-size:12.5px;line-height:1.45;color:#c9ced6}
+  .nc-v.ok{background:rgba(64,192,87,.12)}
+  .nc-v.warn{background:rgba(250,176,5,.12)}
+  .nc-v.bad{background:rgba(250,82,82,.12)}
+  .nc-btn{font-size:12px;padding:0 10px;color:var(--fg-dim)}
 </style>
 </head>
 <body>
@@ -673,6 +692,7 @@
   </section>
   <section><h3>Live sessions</h3>
     <div class="st-row"><span class="st-l">Your name<em>Shown to others next to your cursor</em></span><input id="stName" class="st-in" maxlength="24" autocomplete="nickname" placeholder="Your name"></div>
+    <div class="st-row"><span class="st-l">Network check<em>See whether this network lets live sessions through</em></span><button class="tg" id="stNet" type="button">Check</button></div>
   </section>
   <section><h3>Saving</h3>
     <label class="st-row"><span class="st-l">Keep my boards in this browser<em>Saves as you work, so a closed tab can be brought back</em></span><input type="checkbox" class="sw" id="stAuto"></label>
@@ -3978,7 +3998,7 @@ function dlgOpen(){ return $('dlgwrap').classList.contains('show'); }
 let dlg = null;
 function openDlg(title, okLabel, html){
   closePops(); closeTextEditor();
-  $('dlgTitle').textContent = title; $('dlgOk').textContent = okLabel;
+  $('dlgTitle').textContent = title; $('dlgOk').textContent = okLabel; $('dlgCancel').hidden = false;
   $('dlgBody').innerHTML = html; $('dlgMsg').textContent = ''; $('dlgOk').disabled = false;
   $('dlgwrap').classList.add('show');
 }
@@ -6435,6 +6455,7 @@ $('stName').addEventListener('keydown', e=> e.stopPropagation());
 $('stName').addEventListener('change', e=>{ const n = liveName(e.target.value); LV.name = n; lsSet('sb-name', n); if(LV.role) toast('Your new name shows next time you join'); });
 $('stForget').onclick = async ()=>{ try{ await kvSet('last', null); await kvSet('prev', null); }catch(e){} AUTO.recovered = null; $('restoreBtn').hidden = true; hideRestore(); syncSettings(); toast('Forgot the saved copy'); };
 $('stClose').onclick = closeSettings;
+$('stNet').onclick = ()=>{ closeSettings(); runNetCheck(); };
 $('stKeys').onclick = ()=>{ closeSettings(); $('help').classList.add('show'); };
 $('settings').addEventListener('pointerdown', e=>{ if(e.target.id==='settings') closeSettings(); });
 $('settings').addEventListener('keydown', e=>{ if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); closeSettings(); } });
@@ -6741,6 +6762,97 @@ function loadPeerJS(){
   });
   return LV.peerLoad;
 }
+
+/* ---- network check: which part of a live session this network lets through ---- */
+const NET_STUN = [{urls:'stun:stun.l.google.com:19302'}];
+const NET_TURN = [{urls:['turn:eu-0.turn.peerjs.com:3478','turn:us-0.turn.peerjs.com:3478'], username:'peerjs', credential:'peerjsp'}];
+const withTimeout = (p, ms) => Promise.race([p, new Promise(r=>setTimeout(()=>r('timeout'), ms))]);
+/* collect the network routes the browser can find with these servers */
+async function iceKinds(servers, policy, ms){
+  const kinds = new Set();
+  let pc;
+  try{
+    pc = new RTCPeerConnection({iceServers:servers, iceTransportPolicy:policy||'all'});
+    pc.createDataChannel('check');
+    const done = new Promise(res=>{
+      pc.onicecandidate = e=>{
+        if(!e.candidate){ res(); return; }
+        const m = / typ (host|srflx|prflx|relay)/.exec(e.candidate.candidate || '');
+        if(m) kinds.add(m[1]);
+        if(policy==='relay' ? kinds.has('relay') : kinds.has('srflx')) res();
+      };
+    });
+    await pc.setLocalDescription(await pc.createOffer());
+    await withTimeout(done, ms);
+  }catch(e){}
+  try{ pc && pc.close(); }catch(e){}
+  return kinds;
+}
+async function runNetCheck(){
+  const steps = [
+    {k:'lib', t:'Connection code', d:'Loads the part of Screenboard that handles live sessions'},
+    {k:'srv', t:'Matchmaking server', d:'Introduces your browser to the other person’s'},
+    {k:'udp', t:'Direct connection', d:'The fast, direct link between browsers'},
+    {k:'relay', t:'Backup relay', d:'Used when a direct link isn’t allowed'}
+  ];
+  const res = {};
+  const render = verdict => {
+    const icon = s => s==='ok' ? '<i class="nc-i ok">✓</i>' : s==='bad' ? '<i class="nc-i bad">✕</i>' : s==='warn' ? '<i class="nc-i warn">!</i>' : '<i class="nc-i run"></i>';
+    $('dlgBody').innerHTML = `<div class="nc">${steps.map(s=>`<div class="nc-row">${icon(res[s.k])}<div><b>${s.t}</b><span>${escHtml(res[s.k+'Note'] || s.d)}</span></div></div>`).join('')}</div>
+      ${verdict ? `<div class="nc-v ${verdict.kind}"><b>${escHtml(verdict.title)}</b><span>${escHtml(verdict.text)}</span></div>` : '<p class="note">Checking… this takes up to 20 seconds.</p>'}`;
+  };
+  openDlg('Network check', 'Done', '');
+  $('dlgCancel').hidden = true;
+  $('dlgOk').disabled = true;
+  dlg = {kind:'net', ok(){ closeDlg(); }};
+  const alive = () => dlg && dlg.kind==='net';
+  render();
+
+  // 1. the connection code
+  try{ await withTimeout(loadPeerJS(), 10000); res.lib = window.Peer ? 'ok' : 'bad'; }catch(e){ res.lib = 'bad'; }
+  if(res.lib==='bad') res.libNote = "Blocked. This network won't load the live-session code from unpkg.com.";
+  if(!alive()) return; render();
+
+  // 2. the matchmaking server
+  if(res.lib==='ok'){
+    let peer = null;
+    const r = await withTimeout(new Promise(ok=>{
+      try{
+        peer = new window.Peer('screenboard-t' + randId(12), peerOpts());
+        peer.on('open', ()=> ok('ok'));
+        peer.on('error', ()=> ok('bad'));
+      }catch(e){ ok('bad'); }
+    }), 10000);
+    try{ peer && peer.destroy(); }catch(e){}
+    res.srv = r==='ok' ? 'ok' : 'bad';
+    if(res.srv==='bad') res.srvNote = "Blocked. This network won't let Screenboard reach the matchmaking server (0.peerjs.com).";
+  } else { res.srv = 'bad'; res.srvNote = 'Skipped, because the connection code didn’t load.'; }
+  if(!alive()) return; render();
+
+  // 3 + 4. direct and relayed routes, checked side by side
+  const [direct, relay] = await Promise.all([iceKinds(NET_STUN, 'all', 6000), iceKinds(NET_TURN, 'relay', 9000)]);
+  res.udp = direct.has('srflx') ? 'ok' : direct.has('host') ? 'warn' : 'bad';
+  if(res.udp==='warn') res.udpNote = 'Only works with people on this same Wi-Fi. Connections from outside are blocked.';
+  if(res.udp==='bad') res.udpNote = 'Blocked on this network.';
+  res.relay = relay.has('relay') ? 'ok' : 'bad';
+  if(res.relay==='bad') res.relayNote = 'Blocked on this network.';
+  if(!alive()) return;
+
+  let v;
+  if(res.lib==='bad' || res.srv==='bad') v = {kind:'bad', title:"Live sessions won't work on this network.",
+    text:'Something needed to start or join a session is blocked. Try a phone hotspot or home Wi-Fi. Drawing, saving and everything else still work here.'};
+  else if(res.udp==='ok') v = {kind:'ok', title:'Live sessions should work here.',
+    text:'Everything a live session needs got through. If someone still can’t join, their network may be the one blocking it, so ask them to run this check too.'};
+  else if(res.relay==='ok') v = {kind:'warn', title:'Live sessions should work, through the backup relay.',
+    text:'Direct links are blocked, but the relay gets through. It can be a little slower when lots of people draw at once.'};
+  else if(res.udp==='warn') v = {kind:'warn', title:'Only people on this same network can join.',
+    text:'Anyone on this Wi-Fi should be able to join your session, but people at home or on other networks can’t reach you from here.'};
+  else v = {kind:'bad', title:"This network blocks live connections.",
+    text:'Starting a session works, but the connection between browsers is blocked. A phone hotspot or home Wi-Fi should work. Drawing, saving and everything else still work here.'};
+  render(v);
+  $('dlgOk').disabled = false;
+}
+
 const peerOpts = () => Object.assign({debug:0}, window.SB_PEER_OPTS || {});
 function makeLink(conn){ return {conn, id:conn.peer, parts:new Map(), assets:new Set(), ready:false, edit:false, name:'', color:''}; }
 function linkSend(L, msg){
@@ -6939,7 +7051,7 @@ async function joinLive(hostId, key, again){
   const fail = msg => {
     if(LV.peer!==peer) return;
     if(again) return retryJoin();
-    stopLive(); LV.state = 'ask'; openShare(); renderSharePop(msg);
+    stopLive(); LV.state = 'ask'; openShare(); renderSharePop(/isn't open anymore/.test(msg) ? msg : msg + ' "Check my network" shows what\u2019s being blocked.');
   };
   const timer = setTimeout(()=> fail("Couldn't reach the host. The session may have ended, or a network is blocking it."), again ? 10000 : 20000);
   peer.on('open', ()=>{
@@ -7345,7 +7457,7 @@ function renderSharePop(note){
   } else if(LV.state==='ask'){
     h = `<div class="lv-title">Join a live board</div>${msg}
       <p class="lv-note">${LV.invite && LV.invite.key ? 'You can draw along with everyone.' : 'This link lets you watch and point, but not draw.'} Joining replaces what's on your screen with the shared board.</p>
-      ${nameFld}<div class="lv-act"><button class="btn" id="lvCancel">Not now</button><button class="btn primary" id="lvJoin">Join</button></div>`;
+      ${nameFld}<div class="lv-act"><button class="btn lv-left nc-btn" id="lvNet" type="button">Check my network</button><button class="btn" id="lvCancel">Not now</button><button class="btn primary" id="lvJoin">Join</button></div>`;
   } else if(LV.role==='host'){
     const L = inviteLinks();
     h = `<div class="lv-title"><i class="lv-dot"></i>You're live</div>
@@ -7369,12 +7481,13 @@ function renderSharePop(note){
   } else {
     h = `<div class="lv-title">Draw together, live</div>${msg}
       <p class="lv-note">Start a session and send the link. People join straight from their browser, with nothing to install, for as long as this board stays open.</p>
-      ${nameFld}<div class="lv-act"><button class="btn primary" id="lvStart">Start live session</button></div>`;
+      ${nameFld}<div class="lv-act"><button class="btn lv-left nc-btn" id="lvNet" type="button">Check my network</button><button class="btn primary" id="lvStart">Start live session</button></div>`;
   }
   el.innerHTML = h;
   const pl = el.querySelector('.lv-people'); if(pl) pl.scrollTop = keepScroll;
   const on = (id, f)=>{ const b = $(id); if(b) b.onclick = f; };
   on('lvStart', startHosting);
+  on('lvNet', ()=>{ closePops(); runNetCheck(); });
   on('lvJoin', ()=> LV.invite && joinLive(LV.invite.host, LV.invite.key));
   on('lvCancel', ()=>{ const was = LV.state; stopLive(); if(was==='joining'){ LV.state = 'ask'; } else { LV.invite = null; if(location.hash.startsWith('#live=')) history.replaceState(null, '', location.pathname + location.search); } renderSharePop(); if(was!=='joining') closePops(); });
   on('lvEnd', ()=>{ stopLive(); renderSharePop(); toast('Session ended'); });
