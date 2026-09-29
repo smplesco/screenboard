@@ -395,7 +395,7 @@
       <div class="row"><span>Format LaTeX in a text box</span><em>Automatic</em></div>
       <h3>Ink</h3>
       <div class="row"><span>Snap to a clean shape</span><em>Hold at the end</em></div>
-      <div class="row"><span>Resize it while snapped</span><em>Keep dragging</em></div>
+      <div class="row"><span>Reshape and turn it while snapped</span><em>Keep dragging</em></div>
       <div class="row"><span>Pick a color</span><em>1 – 9</em></div>
       <div class="row"><span>Thinner, thicker</span><em>[ ]</em></div>
     </div>
@@ -1251,11 +1251,7 @@ function onMove(e){
   if(drag.mode==='snapped'){
     const o = drag.o;
     if(o.type==='rect' || o.type==='ellipse' || o.type==='triangle'){
-      // scale about the centre, by how far the pen has moved from it since the snap
-      const B = drag.base, cx = B.x+B.w/2, cy = B.y+B.h/2;
-      const d0 = Math.max(4/view().s, Math.hypot(drag.at.x-cx, drag.at.y-cy));
-      const k = Math.max(8/view().s/Math.max(B.w, B.h), Math.hypot(wp.x-cx, wp.y-cy)/d0);
-      o.w = B.w*k; o.h = B.h*k; o.x = cx-o.w/2; o.y = cy-o.h/2;
+      reshapeSnapped(o, drag.base, drag.at, wp);
       redrawLiveShape();
       return;
     }
@@ -1960,6 +1956,32 @@ function armSnap(sp){
   drag.hold = sp;
   clearTimeout(snapT);
   snapT = setTimeout(trySnap, SNAP_HOLD_MS);
+}
+/* after a snap, the point you grabbed follows the pen: the shape turns to face it and
+   the side you grabbed stretches, so the proportions are free. Near-equal sides snap
+   to a square or circle, and the angle clicks to 15° steps when close. */
+function reshapeSnapped(o, B, at, wp){
+  const cx = B.x+B.w/2, cy = B.y+B.h/2, rot0 = B.rot||0, a0 = B.w/2, b0 = B.h/2, minR = 4/view().s;
+  const g = rot(at.x, at.y, cx, cy, -rot0), gx = g.x-cx, gy = g.y-cy;
+  const vx = wp.x-cx, vy = wp.y-cy, L = Math.hypot(vx, vy);
+  let a, b, lx, ly;
+  if(Math.hypot(gx, gy) < Math.min(a0, b0)*0.2){
+    const k = Math.max(minR/Math.max(a0, b0), L/Math.max(Math.hypot(gx, gy), minR));
+    a = a0*k; b = b0*k; lx = gx*k; ly = gy*k;
+  } else if(Math.abs(gx)/a0 >= Math.abs(gy)/b0){
+    ly = gy; lx = Math.sign(gx)*Math.sqrt(Math.max(L*L - gy*gy, (a0*0.05)**2));
+    a = Math.max(minR, a0*Math.abs(lx/gx)); b = b0;
+  } else {
+    lx = gx; ly = Math.sign(gy)*Math.sqrt(Math.max(L*L - gx*gx, (b0*0.05)**2));
+    b = Math.max(minR, b0*Math.abs(ly/gy)); a = a0;
+  }
+  let th = Math.atan2(vy, vx) - Math.atan2(ly, lx);
+  if(Math.abs(a-b) < 0.07*Math.max(a, b) && o.type!=='triangle'){ a = b = (a+b)/2; }
+  th = ((th + Math.PI) % TAU + TAU) % TAU - Math.PI;
+  const step = Math.PI/12, q = Math.round(th/step)*step;
+  if(Math.abs(th-q) < 0.045) th = q;
+  if(o.type==='ellipse' && a===b) th = 0;          // a circle has no direction
+  o.w = 2*a; o.h = 2*b; o.x = cx-a; o.y = cy-b; o.rot = th;
 }
 function trySnap(){
   if(!drag || drag.mode!=='draw' || !live || drag.guide) return;
