@@ -329,6 +329,68 @@
   body.viewonly #colorChip, body.viewonly #styleChip, body.viewonly #addPage, body.viewonly #selbar,
   body.viewonly #undo, body.viewonly #redo, body.viewonly #imgBtn, body.viewonly #openBtn, body.viewonly #clearBtn,
   body.viewonly #delPage, body.viewonly #themeBtn, body.viewonly #recBtn, body.viewonly #topright > i.div:first-of-type{display:none !important}
+
+  .sharechip.warn{background:rgba(250,176,5,.16);color:#ffd43b}
+  .lv-dot.warn{background:#fab005;box-shadow:0 0 0 3px rgba(250,176,5,.25)}
+  .lv-row .tg{height:24px;padding:0 8px;font-size:11.5px}
+  .lv-ic{width:26px;height:24px;border-radius:7px;display:grid;place-items:center;color:var(--fg-dim);flex:none}
+  .lv-ic:hover{background:var(--hover);color:var(--fg)}
+  .lv-ic.on{background:var(--active);color:var(--fg)}
+  .lv-ic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .lv-ic svg circle{fill:currentColor;stroke:none}
+  .lv-more{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 6px 17px}
+  .lv-more .tg{height:26px;font-size:11.5px}
+  .tg.danger{color:#ffa8a8}
+  .tg.danger:hover{background:rgba(250,82,82,.15)}
+  .lv-sw{display:flex;flex-direction:column;gap:2px;margin-top:10px}
+  .lv-sw label{display:flex;align-items:flex-start;gap:9px;padding:6px 4px;border-radius:7px;cursor:pointer}
+  .lv-sw label:hover{background:var(--hover)}
+  .lv-sw input{margin:2px 0 0;accent-color:#40c057;width:15px;height:15px;flex:none}
+  .lv-sw span{display:flex;flex-direction:column;gap:1px;font-size:11.5px;color:var(--fg-dim)}
+  .lv-sw b{font-size:12.5px;font-weight:500;color:var(--fg)}
+  .lv-left{margin-right:auto}
+  #sharePop .lv-act .btn{padding:0 11px}
+
+  /* ---- save dialog ---- */
+  .sv-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;font-size:12px;color:var(--fg-dim)}
+  .sv-quick{display:flex;gap:4px}
+  .sv-boards{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:10px;max-height:236px;overflow:auto;padding:2px}
+  .sv-th{display:flex;flex-direction:column;gap:5px;min-width:0}
+  .sv-pic{position:relative;display:block;border-radius:8px;overflow:hidden;cursor:pointer;box-shadow:inset 0 0 0 1px var(--hair)}
+  .sv-pic canvas{display:block;width:100%;height:auto;aspect-ratio:152/96}
+  .sv-th.cur .sv-pic{box-shadow:0 0 0 1.5px rgba(255,255,255,.35)}
+  .sv-th.off .sv-pic canvas{opacity:.3}
+  .sv-pic input{position:absolute;opacity:0;pointer-events:none}
+  .sv-check{position:absolute;top:6px;right:6px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.45);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.7)}
+  .sv-pic input:checked + .sv-check{background:#e9ecf1;box-shadow:none}
+  .sv-pic input:checked + .sv-check::after{content:'';position:absolute;left:6px;top:3px;width:4px;height:8px;border:solid #111316;border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .sv-pic input:focus-visible + .sv-check{outline:1.5px solid var(--fg);outline-offset:2px}
+  .sv-nm{font:inherit;font-size:12px;color:var(--fg);background:transparent;border:0;border-radius:6px;padding:3px 5px;outline:none;min-width:0;width:100%}
+  .sv-nm:hover{background:var(--hover)}
+  .sv-nm:focus{background:#0b0c0e;box-shadow:inset 0 0 0 1px rgba(255,255,255,.3)}
+  .sv-lbl{margin:14px 0 6px;font-size:12px;color:var(--fg-dim)}
+  .seg{display:flex;gap:2px;padding:2px;border-radius:9px;background:rgba(0,0,0,.28);box-shadow:inset 0 0 0 1px var(--hair)}
+  .seg button{flex:1;height:30px;padding:0 10px;border-radius:7px;font-size:12.5px;color:var(--fg-dim);white-space:nowrap}
+  .seg button:hover{color:var(--fg)}
+  .seg button.on{background:var(--active);color:var(--fg)}
+  .sv-img{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .sv-img .sv-lbl{margin-top:12px}
+  @media (max-width:520px){ .sv-img{grid-template-columns:1fr} }
+  .sv-opts{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+  .sv-opt{display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:9px;cursor:pointer;box-shadow:inset 0 0 0 1px var(--hair)}
+  .sv-opt:hover{background:var(--hover)}
+  .sv-opt input{margin:2px 0 0;accent-color:#e9ecf1}
+  .sv-opt span{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--fg-dim)}
+  .sv-opt b{font-size:13px;font-weight:500;color:var(--fg)}
+
+  /* ---- restore last session ---- */
+  #restore{left:50%;top:18px;transform:translateX(-50%);display:none;align-items:center;gap:6px;padding:5px 5px 5px 12px;
+    font-size:12.5px;color:var(--fg);max-width:calc(100vw - 20px);z-index:11}
+  #restore.show{display:flex}
+  #restore span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #restore .tg{height:28px;white-space:nowrap}
+  #restore .tg.primary{background:#e9ecf1;color:#111316;box-shadow:none;font-weight:600}
+  @media (max-width:760px){ #restore{top:auto;bottom:128px} }
 </style>
 </head>
 <body>
@@ -384,6 +446,11 @@
 </div>
 
 <button id="zoomPct" class="chrome">100%</button>
+
+<div id="restore" class="chrome surface"><span id="restoreText"></span>
+  <button class="tg primary" id="restoreYes" type="button">Restore</button>
+  <button class="b" id="restoreNo" type="button" aria-label="Dismiss"><svg viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></svg></button>
+</div>
 
 <div id="cpop" class="chrome surface"><span id="cpText"></span>
   <button class="tg primary" id="cpFix" type="button">Fix colors</button>
@@ -444,9 +511,9 @@
   <div class="mi" id="pagesSlot"><span>Boards</span></div>
   <i class="msep"></i>
   <button class="mi" id="openBtn"><span>Open a board</span><em>Ctrl O</em></button>
-  <button class="mi" id="saveBtn"><span>Save all boards</span><em>Ctrl S</em></button>
-  <button class="mi" id="pngBtn"><span>Export as PNG</span><em>Ctrl E</em></button>
-  <button class="mi" id="svgBtn"><span>Export as SVG</span><em>Ctrl Shift E</em></button>
+  <button class="mi" id="restoreBtn" hidden><span>Restore last session</span><em id="restoreWhen"></em></button>
+  <button class="mi" id="saveBtn"><span>Save or export…</span><em>Ctrl S</em></button>
+  <button class="mi" id="pngBtn"><span>Quick PNG of this board</span><em>Ctrl E</em></button>
   <button class="mi" id="recBtn"><span>Record video</span><em>Shift R</em></button>
   <i class="msep"></i>
   <button class="mi" id="clearBtn"><span>Erase this board</span></button>
@@ -685,19 +752,20 @@ function pushUndo(){
   const p = page();
   p.undo.push(p.objects.slice());
   if(p.undo.length>120) p.undo.shift();
+  editCount++;
   p.redo.length = 0;
   syncHistoryButtons();
 }
 function undo(){
   const p = page(); if(!p.undo.length) return;
-  p.redo.push(p.objects.slice());
+  p.redo.push(p.objects.slice()); editCount++;
   p.objects = mergeSnapshot(p.objects, p.undo.pop());
   S.selection = S.selection.filter(o=>p.objects.includes(o));
   sceneDirty = true; syncHistoryButtons();
 }
 function redo(){
   const p = page(); if(!p.redo.length) return;
-  p.undo.push(p.objects.slice());
+  p.undo.push(p.objects.slice()); editCount++;
   p.objects = mergeSnapshot(p.objects, p.redo.pop());
   S.selection = S.selection.filter(o=>p.objects.includes(o));
   sceneDirty = true; syncHistoryButtons();
@@ -1896,37 +1964,328 @@ function deObj(c){
   if(c._P){ const P = c._P; c._P = {ox:hpDe(P.ox), oy:hpDe(P.oy), z:P.z, w:P.w, h:P.h, size:P.size, pts:P.pts ? Float64Array.from(P.pts) : undefined}; c._sig = geoSig(c); }
   return c;
 }
-function saveBoards(){
-  for(const pg of S.pages) for(const o of pg.objects) if(!o._off && (!o._P || o._sig !== geoSig(o))) syncExact(o, baseOf(pg));
-  const data = {app:'screenboard', v:2, theme:S.theme, grid:S.grid, customColor:S.customColor||null, background:bgImg.src||null,
-    pages:S.pages.map(p=>{ const B = baseOf(p); return {objects:p.objects.map(serObj), base:{x:hpSer(B.x), y:hpSer(B.y), z:B.z}, view:{...p.view}}; })};
-  download(new Blob([JSON.stringify(data)],{type:'application/json'}), `Screenboard ${stamp()}.screenboard`);
+
+/* ================= saving and opening =================
+   Pick which boards to save and how: a board file that opens again with
+   everything editable, a PDF with a page per board, or PNG/SVG pictures
+   (several at once come as a .zip). Work is also kept in the browser as you go,
+   so a closed tab can be brought back. */
+const LIBS = {
+  pdf:'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+  zip:'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'
+};
+const libLoads = {};
+function loadLib(url, ready){
+  if(ready()) return Promise.resolve();
+  if(libLoads[url]) return libLoads[url];
+  return libLoads[url] = new Promise((res, rej)=>{
+    const s = document.createElement('script'); s.src = url; s.async = true;
+    s.onload = ()=> ready() ? res() : rej(new Error('bad library'));
+    s.onerror = ()=>{ delete libLoads[url]; s.remove(); rej(new Error('offline')); };
+    document.head.appendChild(s);
+  });
 }
-$('saveBtn').addEventListener('click', saveBoards);
+const boardName = (pg, i) => (pg.name && pg.name.trim()) || `Board ${i+1}`;
+const safeFile = s => String(s).replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Screenboard';
+
+function boardData(pages){
+  for(const pg of pages) for(const o of pg.objects) if(!o._off && (!o._P || o._sig !== geoSig(o))) syncExact(o, baseOf(pg));
+  return {app:'screenboard', v:2, theme:S.theme, grid:S.grid, customColor:S.customColor||null, background:bgImg.src||null,
+    pages:pages.map(p=>{ const B = baseOf(p); return {name:p.name||undefined, objects:p.objects.map(serObj), base:{x:hpSer(B.x), y:hpSer(B.y), z:B.z}, view:{...p.view}}; })};
+}
+function pagesFromData(d){
+  return d.pages.map(p=>({id:uid(), name:p.name||undefined, objects:(p.objects||[]).map(deObj), undo:[], redo:[],
+    view: p.view && p.view.s>0 ? {x:+p.view.x||0, y:+p.view.y||0, s:+p.view.s} : {x:0,y:0,s:1},
+    base: p.base ? {x:hpDe(p.base.x), y:hpDe(p.base.y), z:+p.base.z||0} : {x:HP0, y:HP0, z:0}}));
+}
+function applyLookFrom(d){
+  if(d.customColor){ S.customColor = d.customColor; makeCustomTheme(d.customColor); }
+  const th = d.theme==='paper' ? 'whiteboard' : d.theme;
+  if(th && THEMES[th]) setTheme(th);
+  setBackgroundImage(d.background || null);
+  if(d.grid) S.grid = d.grid;
+  syncSurfacePop();
+}
+/* replace: the file's boards take over. add: they go after yours, keeping your look */
+function loadBoards(d, how){
+  closeTextEditor();
+  const pgs = pagesFromData(d);
+  if(!pgs.length) return;
+  if(how==='add'){
+    const at = S.pages.length;
+    S.pages.push(...pgs);
+    gotoPage(at);
+    toast(pgs.length===1 ? 'Added 1 board' : `Added ${pgs.length} boards`);
+  } else {
+    S.pages = pgs; S.page = 0; S.selection = [];
+    applyLookFrom(d);
+    toast(pgs.length===1 ? 'Opened 1 board' : `Opened ${pgs.length} boards`);
+  }
+  editCount++;
+  sceneDirty = true; syncPages(); syncHistoryButtons(); updateZoomLabel();
+}
+const hasWork = () => S.pages.some(p=>p.objects.length);
+function openBoardFile(d, fname){
+  if(!hasWork()) return loadBoards(d, 'replace');
+  const n = d.pages.length;
+  openDlg(`Open “${fname.replace(/\.screenboard$/i,'')}”`, 'Open', `
+    <p class="note" style="margin-top:0">This file has ${n} board${n===1 ? '' : 's'}. You already have work open.</p>
+    <div class="sv-opts" id="opHow">
+      <label class="sv-opt"><input type="radio" name="opHow" value="add" checked><span><b>Add after my boards</b>Keeps everything you have and puts the file's boards at the end</span></label>
+      <label class="sv-opt"><input type="radio" name="opHow" value="replace"><span><b>Replace my boards</b>Closes what's open now. Save it first if you want to keep it</span></label>
+    </div>`);
+  dlg = {ok(){ const how = document.querySelector('input[name=opHow]:checked').value; closeDlg(); loadBoards(d, how); }};
+}
+
+/* ---- pictures of boards ---- */
+function withPage(i, fn){
+  const old = S.page; S.page = i;
+  try{ return fn(); } finally { S.page = old; sceneDirty = true; }
+}
+function boardBox(area){
+  if(area==='view'){ const a = S2W(0,0), b = S2W(W,H); return {box:{x:a.x, y:a.y, w:b.x-a.x, h:b.y-a.y}, objs:page().objects.filter(o=>!o._off)}; }
+  return exportBox();
+}
+function paintSurface(g, w, h){
+  const th = THEMES[S.theme];
+  const grad = g.createLinearGradient(0,0,w*.35,h);
+  grad.addColorStop(0,th.bg); grad.addColorStop(1,th.bg2);
+  g.fillStyle = grad; g.fillRect(0,0,w,h);
+  drawBackgroundImage(g, w, h);
+}
+function boardCanvas(i, {area='all', bg=true, long=4096}={}){
+  return withPage(i, ()=>{
+    const {box, objs} = boardBox(area);
+    const k = long/Math.max(box.w, box.h);
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.min(8192, Math.round(box.w*k))); c.height = Math.max(1, Math.min(8192, Math.round(box.h*k)));
+    const g = c.getContext('2d');
+    if(bg) paintSurface(g, c.width, c.height);
+    withExportRender(()=> renderObjects(g, objs, [k,0,0,k,-box.x*k,-box.y*k], {x0:0, y0:0, x1:c.width, y1:c.height}));
+    return c;
+  });
+}
+function boardSVG(i, {area='all', bg=true}={}){
+  return withPage(i, ()=>{
+    const {box, objs} = boardBox(area);
+    const long = 1600, k = long/Math.max(box.w, box.h), w = box.w*k, h = box.h*k;
+    const vc = new VectorCtx('svg', {m:[k,0,0,k,-box.x*k,-box.y*k], tol:0.08, measure:sctx});
+    withExportRender(()=>{
+      RENDER.win = {x0:box.x, y0:box.y, x1:box.x+box.w, y1:box.y+box.h}; RENDER.s = k;
+      for(const o of objs){ if(o._off) continue; vc.setTransform(k,0,0,k,-box.x*k,-box.y*k); drawObject(vc, o); }
+    });
+    const th = THEMES[S.theme];
+    const back = bg ? `<rect width="100%" height="100%" fill="url(#bg)"/>` + (bgImg.src ? `<image href="${svgEsc(bgImg.src)}" width="100%" height="100%" preserveAspectRatio="xMidYMid slice"/>` : '') : '';
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${fmt(w)}" height="${fmt(h)}" viewBox="0 0 ${fmt(w)} ${fmt(h)}">`
+      + `<defs><linearGradient id="bg" x1="0" y1="0" x2="${fmt(w*.35)}" y2="${fmt(h)}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${th.bg}"/><stop offset="1" stop-color="${th.bg2}"/></linearGradient>${vc.defs.join('')}</defs>`
+      + back + `${vc.out.join('')}</svg>`;
+  });
+}
+const canvasBlob = (c, type='image/png', q) => new Promise(r=> c.toBlob(r, type, q));
+function exportPNG(){
+  canvasBlob(boardCanvas(S.page)).then(b=> download(b, `${safeFile(boardName(page(), S.page))} ${stamp()}.png`));
+  toast('Exported a PNG.');
+}
+function exportSVG(){
+  download(new Blob([boardSVG(S.page)], {type:'image/svg+xml'}), `${safeFile(boardName(page(), S.page))} ${stamp()}.svg`);
+  toast('Exported an SVG.');
+}
+
+/* ---- the save dialog ---- */
+const SAVE = Object.assign({fmt:'board', area:'all', bg:true}, (()=>{ try{ return JSON.parse(localStorage.getItem('sb-save')) || {}; }catch(e){ return {}; } })());
+const SAVE_NOTES = {
+  board:'A Screenboard file. Open it again later with everything still editable, zoom and all.',
+  pdf:'One page per board. Good for printing, handing in, or sending to someone.',
+  png:'A picture of each board. Several boards download together as a .zip.',
+  svg:'Stays sharp at any size and opens in design apps. Several boards come as a .zip.'
+};
+function openSaveDlg(){
+  const n = S.pages.length;
+  const thumbs = S.pages.map((pg, i)=>`
+    <div class="sv-th${i===S.page ? ' cur' : ''}" data-i="${i}">
+      <label class="sv-pic"><canvas width="152" height="96"></canvas><input type="checkbox" data-pick="${i}" checked><i class="sv-check"></i></label>
+      <input class="sv-nm" data-name="${i}" value="${escHtml(boardName(pg, i))}" aria-label="Board name">
+    </div>`).join('');
+  const seg = (id, opts, cur) => `<div class="seg" id="${id}">${opts.map(([v,l])=>`<button type="button" data-v="${v}" class="${v===cur ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+  openDlg('Save boards', 'Save', `
+    <div class="sv-bar"><span id="svCount"></span><span class="sv-quick">${n > 1 ? '<button class="tg" type="button" data-q="all">All</button><button class="tg" type="button" data-q="cur">This board</button><button class="tg" type="button" data-q="none">None</button>' : ''}</span></div>
+    <div class="sv-boards">${thumbs}</div>
+    <div class="sv-lbl">Save as</div>
+    ${seg('svFmt', [['board','Board file'],['pdf','PDF'],['png','PNG'],['svg','SVG']], SAVE.fmt)}
+    <p class="note" id="svNote"></p>
+    <div class="sv-img" id="svImg">
+      <div><div class="sv-lbl">Include</div>${seg('svArea', [['all','Everything'],['view',"What's on screen"]], SAVE.area)}</div>
+      <div id="svBgWrap"><div class="sv-lbl">Background</div>${seg('svBg', [['1','Surface'],['0','Transparent']], SAVE.bg ? '1' : '0')}</div>
+    </div>
+    <label class="fld" style="margin-top:14px"><span>File name</span><input id="svName" value="${escHtml(defaultSaveName())}"></label>`);
+  const picks = () => [...document.querySelectorAll('[data-pick]')].filter(x=>x.checked).map(x=>+x.dataset.pick);
+  const sync = () => {
+    const p = picks();
+    $('svCount').textContent = p.length===n ? (n===1 ? '1 board' : `All ${n} boards`) : `${p.length} of ${n} boards`;
+    $('svNote').textContent = SAVE_NOTES[SAVE.fmt];
+    $('svImg').hidden = SAVE.fmt==='board';
+    $('svBgWrap').hidden = SAVE.fmt==='pdf';
+    for(const id of ['svFmt','svArea','svBg']) $(id).querySelectorAll('button').forEach(b=> b.classList.toggle('on',
+      id==='svFmt' ? b.dataset.v===SAVE.fmt : id==='svArea' ? b.dataset.v===SAVE.area : (b.dataset.v==='1')===SAVE.bg));
+    document.querySelectorAll('.sv-th').forEach(t=> t.classList.toggle('off', !t.querySelector('[data-pick]').checked));
+    $('dlgOk').disabled = !p.length;
+    $('dlgOk').textContent = SAVE.fmt==='board' ? 'Save' : 'Export';
+  };
+  document.querySelectorAll('[data-pick]').forEach(x=> x.onchange = sync);
+  document.querySelectorAll('[data-q]').forEach(b=> b.onclick = ()=>{
+    document.querySelectorAll('[data-pick]').forEach(x=> x.checked = b.dataset.q==='all' || (b.dataset.q==='cur' && +x.dataset.pick===S.page));
+    sync();
+  });
+  document.querySelectorAll('[data-name]').forEach(x=>{
+    x.addEventListener('keydown', e=> e.stopPropagation());
+    x.onchange = ()=>{ const pg = S.pages[+x.dataset.name], v = x.value.trim(); if(pg){ pg.name = v && v!==`Board ${+x.dataset.name+1}` ? v.slice(0,60) : undefined; } };
+  });
+  $('svFmt').onclick = e=>{ const b = e.target.closest('button'); if(b){ SAVE.fmt = b.dataset.v; sync(); } };
+  $('svArea').onclick = e=>{ const b = e.target.closest('button'); if(b){ SAVE.area = b.dataset.v; sync(); } };
+  $('svBg').onclick = e=>{ const b = e.target.closest('button'); if(b){ SAVE.bg = b.dataset.v==='1'; sync(); } };
+  $('svName').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); $('dlgOk').click(); } });
+  sync();
+  // thumbnails, drawn one at a time so the dialog opens straight away
+  let ti = 0;
+  const next = ()=>{
+    if(!dlg || dlg.kind!=='save' || ti >= n) return;
+    const el = document.querySelector(`.sv-th[data-i="${ti}"] canvas`);
+    if(el){ try{
+      const c = boardCanvas(ti, {long:320}), g = el.getContext('2d');
+      const k = Math.min(el.width/c.width, el.height/c.height), w = c.width*k, h = c.height*k;
+      paintSurface(g, el.width, el.height);
+      g.drawImage(c, (el.width-w)/2, (el.height-h)/2, w, h);
+    }catch(e){} }
+    ti++; setTimeout(next, 0);
+  };
+  dlg = {kind:'save', ok(){
+    const list = picks(); if(!list.length) return;
+    const name = safeFile($('svName').value);
+    try{ localStorage.setItem('sb-save', JSON.stringify({fmt:SAVE.fmt, area:SAVE.area, bg:SAVE.bg})); }catch(e){}
+    $('dlgOk').disabled = true; $('dlgMsg').textContent = SAVE.fmt==='board' ? '' : 'Working…';
+    saveBoardsAs(list, name, {...SAVE}).then(()=> closeDlg(), err=>{
+      $('dlgOk').disabled = false;
+      $('dlgMsg').textContent = err && err.message==='offline' ? "Couldn't load the export tool. Check your internet connection." : "Something went wrong saving that.";
+    });
+  }};
+  setTimeout(next, 30);
+}
+function defaultSaveName(){
+  const named = S.pages.length===1 && S.pages[0].name;
+  return named ? S.pages[0].name : `Screenboard ${stamp()}`;
+}
+function saveBoards(){ return saveBoardsAs(S.pages.map((_, i)=>i), `Screenboard ${stamp()}`, {fmt:'board'}); }
+async function saveBoardsAs(list, name, o){
+  const pages = list.map(i=>S.pages[i]);
+  if(o.fmt==='board'){
+    download(new Blob([JSON.stringify(boardData(pages))], {type:'application/json'}), `${name}.screenboard`);
+    toast(list.length===1 ? 'Saved 1 board' : `Saved ${list.length} boards`);
+    return;
+  }
+  const fileFor = (i, ext) => list.length===1 ? `${name}.${ext}` : `${safeFile(boardName(S.pages[i], i))}.${ext}`;
+  if(o.fmt==='pdf'){
+    await loadLib(LIBS.pdf, ()=> window.jspdf && window.jspdf.jsPDF);
+    let doc = null;
+    for(const i of list){
+      const c = boardCanvas(i, {area:o.area, bg:true, long:2400});
+      const long = 842, k = long/Math.max(c.width, c.height), w = c.width*k, h = c.height*k;
+      const orient = w >= h ? 'l' : 'p';
+      if(!doc) doc = new window.jspdf.jsPDF({orientation:orient, unit:'pt', format:[w, h], compress:true});
+      else doc.addPage([w, h], orient);
+      doc.addImage(c.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, w, h, undefined, 'FAST');
+    }
+    download(doc.output('blob'), `${name}.pdf`);
+    toast('Exported a PDF');
+    return;
+  }
+  const files = [];
+  for(const i of list){
+    if(o.fmt==='png') files.push([fileFor(i,'png'), await canvasBlob(boardCanvas(i, {area:o.area, bg:o.bg}))]);
+    else files.push([fileFor(i,'svg'), new Blob([boardSVG(i, {area:o.area, bg:o.bg})], {type:'image/svg+xml'})]);
+  }
+  if(files.length===1){ download(files[0][1], files[0][0]); toast(`Exported a${o.fmt==='svg' ? 'n SVG' : ' PNG'}`); return; }
+  await loadLib(LIBS.zip, ()=> window.JSZip);
+  const zip = new window.JSZip(), used = new Set();
+  for(let [f, b] of files){ let g = f, k = 2; while(used.has(g)){ g = f.replace(/(\.\w+)$/, ` (${k++})$1`); } used.add(g); zip.file(g, b); }
+  download(await zip.generateAsync({type:'blob'}), `${name}.zip`);
+  toast(`Exported ${files.length} boards`);
+}
+
+/* ---- kept in the browser as you work ---- */
+let editCount = 0;
+const AUTO = {saved:0, recovered:null, wrote:false, busy:false};
+function kv(){
+  return new Promise((res, rej)=>{
+    try{
+      const r = indexedDB.open('screenboard', 1);
+      r.onupgradeneeded = ()=> r.result.createObjectStore('kv');
+      r.onsuccess = ()=> res(r.result); r.onerror = ()=> rej(r.error);
+    }catch(e){ rej(e); }
+  });
+}
+async function kvGet(k){ const db = await kv(); return new Promise((res, rej)=>{ const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = ()=> res(q.result); q.onerror = ()=> rej(q.error); }); }
+async function kvSet(k, v){ const db = await kv(); return new Promise((res, rej)=>{ const t = db.transaction('kv','readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = ()=> res(); t.onerror = ()=> rej(t.error); }); }
+async function autosave(force){
+  if(AUTO.busy || editCount===AUTO.saved) return;
+  if(!hasWork() && AUTO.recovered && !AUTO.wrote) return;
+  if(!force && (drag || editing || live)) return;
+  AUTO.busy = true;
+  const n = editCount;
+  try{
+    if(!AUTO.wrote && AUTO.recovered) await kvSet('prev', AUTO.recovered);
+    await kvSet('last', {t:Date.now(), data:JSON.stringify(boardData(S.pages))});
+    AUTO.wrote = true; AUTO.saved = n;
+  }catch(e){}
+  AUTO.busy = false;
+}
+setInterval(()=> (window.requestIdleCallback || setTimeout)(()=> autosave()), 4000);
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden) autosave(true); });
+window.addEventListener('pagehide', ()=> autosave(true));
+function restoreRecovered(){
+  const r = AUTO.recovered; if(!r) return;
+  try{ const d = JSON.parse(r.data); loadBoards(d, hasWork() ? 'add' : 'replace'); }catch(e){ toast("Couldn't restore those boards."); }
+  hideRestore();
+}
+function hideRestore(){ const el = $('restore'); if(el) el.classList.remove('show'); }
+function whenText(t){
+  const d = new Date(t), now = new Date(), time = d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+  if(d.toDateString()===now.toDateString()) return `today at ${time}`;
+  const y = new Date(now); y.setDate(now.getDate()-1);
+  if(d.toDateString()===y.toDateString()) return `yesterday at ${time}`;
+  return d.toLocaleDateString([], {month:'short', day:'numeric'}) + ` at ${time}`;
+}
+(async ()=>{
+  let r = null;
+  try{ r = await kvGet('last'); }catch(e){}
+  if(!r || !r.data) return;
+  let d; try{ d = JSON.parse(r.data); }catch(e){ return; }
+  const n = (d.pages||[]).filter(p=>(p.objects||[]).length).length;
+  if(!n) return;
+  AUTO.recovered = r;
+  $('restoreBtn').hidden = false;
+  $('restoreWhen').textContent = whenText(r.t);
+  if(hasWork() || /^#live=/.test(location.hash)) return;
+  $('restoreText').textContent = `Pick up where you left off? ${n} board${n===1 ? '' : 's'} from ${whenText(r.t)}.`;
+  $('restore').classList.add('show');
+  setTimeout(hideRestore, 30000);
+})();
+$('restoreYes').onclick = restoreRecovered;
+$('restoreNo').onclick = hideRestore;
+$('restoreBtn').onclick = ()=>{ closePops(); restoreRecovered(); };
+
+$('saveBtn').addEventListener('click', openSaveDlg);
 $('openBtn').addEventListener('click', ()=> $('fileOpen').click());
 $('fileOpen').addEventListener('change', e=>{
   const f = e.target.files[0]; if(!f) return;
   const r = new FileReader();
   r.onload = ()=>{
-    try{
-      const d = JSON.parse(r.result);
-      if(!d.pages) throw new Error('bad file');
-      S.pages = d.pages.map(p=>({id:uid(), objects:(p.objects||[]).map(deObj), undo:[], redo:[],
-        view: p.view && p.view.s>0 ? {x:+p.view.x||0, y:+p.view.y||0, s:+p.view.s} : {x:0,y:0,s:1},
-        base: p.base ? {x:hpDe(p.base.x), y:hpDe(p.base.y), z:+p.base.z||0} : {x:HP0, y:HP0, z:0}}));
-      S.page = 0; S.selection = [];
-      if(d.customColor){ S.customColor = d.customColor; makeCustomTheme(d.customColor); }
-      const th = d.theme==='paper' ? 'whiteboard' : d.theme;
-      if(th && THEMES[th]) setTheme(th);
-      setBackgroundImage(d.background || null);
-      if(d.grid) S.grid = d.grid;
-      sceneDirty = true; syncPages(); syncHistoryButtons(); updateZoomLabel();
-    }catch(err){ toast("That file wasn't a saved board."); }
+    let d = null;
+    try{ d = JSON.parse(r.result); if(!d.pages) throw 0; }catch(err){ toast("That file wasn't a saved board."); return; }
+    openBoardFile(d, f.name);
   };
   r.readAsText(f);
   e.target.value='';
 });
-$('pngBtn').addEventListener('click', exportPNG);
 
 /* ---------------- pages ---------------- */
 function syncPages(){
@@ -1943,10 +2302,10 @@ function gotoPage(i){
 }
 $('prevPage').onclick = ()=> gotoPage(S.page-1);
 $('nextPage').onclick = ()=> gotoPage(S.page+1);
-$('addPage').onclick = ()=>{ S.pages.splice(S.page+1,0,newPage()); gotoPage(S.page+1); };
+$('addPage').onclick = ()=>{ S.pages.splice(S.page+1,0,newPage()); editCount++; gotoPage(S.page+1); };
 $('delPage').onclick = ()=>{
   if(S.pages.length===1) return;
-  S.pages.splice(S.page,1); gotoPage(Math.min(S.page, S.pages.length-1));
+  S.pages.splice(S.page,1); editCount++; gotoPage(Math.min(S.page, S.pages.length-1));
 };
 $('clearBtn').onclick = ()=>{
   if(!page().objects.length) return;
@@ -3840,37 +4199,6 @@ function withExportRender(fn){
   RENDER.exporting = true;
   try{ return fn(); } finally { Object.assign(RENDER, saved); sceneDirty = true; }
 }
-function exportPNG(){
-  const {box, objs} = exportBox();
-  const long = 4096, k = long/Math.max(box.w, box.h);
-  const c = document.createElement('canvas');
-  c.width = Math.max(1, Math.min(8192, Math.round(box.w*k))); c.height = Math.max(1, Math.min(8192, Math.round(box.h*k)));
-  const g = c.getContext('2d'), th = THEMES[S.theme];
-  const grad = g.createLinearGradient(0,0,c.width*.35,c.height);
-  grad.addColorStop(0,th.bg); grad.addColorStop(1,th.bg2);
-  g.fillStyle = grad; g.fillRect(0,0,c.width,c.height);
-  drawBackgroundImage(g, c.width, c.height);
-  withExportRender(()=> renderObjects(g, objs, [k,0,0,k,-box.x*k,-box.y*k], {x0:0, y0:0, x1:c.width, y1:c.height}));
-  c.toBlob(b=>download(b, `Screenboard ${stamp()}.png`), 'image/png');
-  toast('Exported a PNG.');
-}
-function exportSVG(){
-  const {box, objs} = exportBox();
-  const long = 1600, k = long/Math.max(box.w, box.h), w = box.w*k, h = box.h*k;
-  const vc = new VectorCtx('svg', {m:[k,0,0,k,-box.x*k,-box.y*k], tol:0.08, measure:sctx});
-  withExportRender(()=>{
-    RENDER.win = {x0:box.x, y0:box.y, x1:box.x+box.w, y1:box.y+box.h}; RENDER.s = k;
-    for(const o of objs){ if(o._off) continue; vc.setTransform(k,0,0,k,-box.x*k,-box.y*k); drawObject(vc, o); }
-  });
-  const th = THEMES[S.theme];
-  const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${fmt(w)}" height="${fmt(h)}" viewBox="0 0 ${fmt(w)} ${fmt(h)}">`
-    + `<defs><linearGradient id="bg" x1="0" y1="0" x2="${fmt(w*.35)}" y2="${fmt(h)}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${th.bg}"/><stop offset="1" stop-color="${th.bg2}"/></linearGradient>${vc.defs.join('')}</defs>`
-    + `<rect width="100%" height="100%" fill="url(#bg)"/>` + (bgImg.src ? `<image href="${svgEsc(bgImg.src)}" width="100%" height="100%" preserveAspectRatio="xMidYMid slice"/>` : '')
-    + `${vc.out.join('')}</svg>`;
-  download(new Blob([svg], {type:'image/svg+xml'}), `Screenboard ${stamp()}.svg`);
-  toast('Exported an SVG.');
-}
-
 /* ================= groups ================= */
 function groupMembers(o){
   if(!o || !o.gid) return [o];
@@ -4670,7 +4998,6 @@ $('cpFix').onclick = ()=> fixContrast();
 $('cpSwitch').onclick = e=>{ if(bgImg.src) setBackgroundImage(null); setTheme(e.currentTarget.dataset.theme); syncSurfacePop(); $('cpop').classList.remove('show'); };
 $('cpX').onclick = ()=>{ contrastDismissed = contrastKey; $('cpop').classList.remove('show'); };
 $('pngBtn').onclick = ()=> exportPNG();
-$('svgBtn').onclick = ()=> exportSVG();
 $('editBtn').onclick  = ()=>{ if(S.selection.length===1) editObject(S.selection[0]); };
 $('graphBtn').onclick = e=>{ const lines = selectionGraphLines(); if(lines) graphLines(lines, S.selection[0], e.shiftKey); };
 $('mGraph').onclick = ()=>{ closePops(); openGraphDialog(null); };
@@ -4760,7 +5087,7 @@ window.addEventListener('keydown', e=>{
     const k = e.key.toLowerCase();
     if(k==='z'){ e.preventDefault(); e.shiftKey?redo():undo(); return; }
     if(k==='y'){ e.preventDefault(); redo(); return; }
-    if(k==='s'){ e.preventDefault(); saveBoards(); return; }
+    if(k==='s'){ e.preventDefault(); openSaveDlg(); return; }
     if(k==='o'){ e.preventDefault(); $('fileOpen').click(); return; }
     if(k==='e'){ e.preventDefault(); e.shiftKey ? exportSVG() : exportPNG(); return; }
     if(k==='n'){ e.preventDefault(); $('addPage').click(); return; }
@@ -4806,7 +5133,7 @@ function duplicateSelection(){
   const idMap = new Map(), gidMap = new Map();
   for(const o of S.selection) idMap.set(o.id, uid());
   const p = page(), copies = S.selection.map(o=>{
-    const c = cloneObj(o); c.id = idMap.get(o.id);
+    const c = cloneObj(o); c.id = idMap.get(o.id); delete c.by;
     if(c.gid){ if(!gidMap.has(c.gid)) gidMap.set(c.gid, 'g'+uid()); c.gid = gidMap.get(c.gid); }
     for(const k of ['b1','b2']) if(c[k]){ if(idMap.has(c[k].id)) c[k] = {...c[k], id:idMap.get(c[k].id)}; else delete c[k]; }
     const d = 18/view().s;
@@ -4859,17 +5186,19 @@ const LV = {
   pending:new Map(), seq:0,
   assets:new Map(), assetKey:new Map(),
   follow:null, timer:0, lastPr:0, prSig:'', lastLv:0, hadLv:false, lastBuild:-1, lastFull:0,
-  ptr:null, invite:null, colorN:1, everRemote:false
+  ptr:null, invite:null, colorN:1, everRemote:false,
+  cid:'', locked:false, presenting:false, frames:new Set(), open:null, joinKey:'', retry:0, kicked:false
 };
 const remoteObjs = new WeakSet(), remoteDeleted = new Set();
 let sceneBuilds = 0;
-const viewOnly = () => LV.role==='guest' && !LV.edit;
-const canEdit = () => LV.role==='host' || (LV.role==='guest' && LV.edit);
+const viewOnly = () => LV.role==='guest' && !(LV.edit && !LV.locked);
+const canEdit = () => LV.role==='host' || (LV.role==='guest' && LV.edit && !LV.locked && LV.state==='live');
 const liveName = s => String(s||'').replace(/\s+/g,' ').trim().slice(0,24);
 function randId(n){ const a = new Uint8Array(n); crypto.getRandomValues(a); return Array.from(a, b=>'abcdefghijkmnpqrstuvwxyz23456789'[b%32]).join(''); }
 function lsGet(k){ try{ return localStorage.getItem(k) || ''; }catch(e){ return ''; } }
 function lsSet(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
 const pgId = pg => pg.id || (pg.id = uid());
+LV.cid = lsGet('sb-cid') || randId(10); lsSet('sb-cid', LV.cid);
 const escHtml = s => String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 /* ---- photos travel once, by content key ---- */
@@ -4948,10 +5277,11 @@ function applyMeta(m){
 /* ---- where someone is looking, exactly ---- */
 function viewExact(pg){
   const v = pg.view, B = baseOf(pg), cx = (W/2 - v.x)/v.s, cy = (H/2 - v.y)/v.s;
-  return {cx:hpSer(hpAdd(B.x, hpFromFloat(cx, B.z))), cy:hpSer(hpAdd(B.y, hpFromFloat(cy, B.z))), lz:Math.log2(v.s) + B.z};
+  return {cx:hpSer(hpAdd(B.x, hpFromFloat(cx, B.z))), cy:hpSer(hpAdd(B.y, hpFromFloat(cy, B.z))), lz:Math.log2(v.s) + B.z, w:Math.round(W), h:Math.round(H)};
 }
 function applyView(pg, V){
   if(!V || !isFinite(V.lz)) return;
+  if(V.w > 0 && V.h > 0) V = Object.assign({}, V, {lz: V.lz + Math.log2(Math.min(W/V.w, H/V.h))});
   const B = baseOf(pg), X = hpDe(V.cx), Y = hpDe(V.cy);
   let s = 2**(V.lz - B.z), lx = hpToFloat(hpSub(X, B.x), B.z), ly = hpToFloat(hpSub(Y, B.y), B.z);
   if(!(s < 16 && s >= 1/16 && Math.abs(lx) < 2**20 && Math.abs(ly) < 2**20)){
@@ -4994,6 +5324,7 @@ function collectChanges(keys){
         const loose = isLink(o) && (o.b1 || o.b2) && !sel.has(o);
         if((loose || o._off || o._sig===geoSig(o)) && k.sc===scalarSig(o)) continue;
       }
+      if(!k && !o.by && !remoteObjs.has(o)) o.by = LV.cid;
       ups.push(wireObj(o, pg, keys));
       K.objs.set(o.id, {P:o._P, sc:scalarSig(o)});
     }
@@ -5072,6 +5403,7 @@ function applyOps(op, m){
     S.selection = S.selection.map(o=> swap.has(o) ? swap.get(o) : o).filter(Boolean);
   }
   if(pg===page()) sceneDirty = true;
+  editCount++;
 }
 function applyMsg(m){
   if(m.pages && !skipKey('pages', m)) applyPages(m.pages);
@@ -5144,7 +5476,7 @@ function sendAssets(L, keys){
 function toGuests(msg, except){
   for(const L of LV.links.values()) if(L.ready && L!==except){ sendAssets(L, msg.a); linkSend(L, msg); }
 }
-function peopleList(){ return [...LV.people.values()].map(p=>({id:p.id, name:p.name, color:p.color, edit:p.edit})); }
+function peopleList(){ return [...LV.people.values()].map(p=>({id:p.id, name:p.name, color:p.color, edit:p.edit, cid:p.cid})); }
 function person(id){ let p = LV.people.get(id); if(!p){ p = {id, name:'Someone', color:'#aaa', edit:true, pr:null, trail:[], lv:null}; LV.people.set(id, p); } return p; }
 
 /* host */
@@ -5161,7 +5493,7 @@ async function startHosting(){
     if(LV.peer!==peer) return;
     if(LV.role==='host'){ return; }       // reconnected to the matchmaker
     LV.role = 'host'; LV.state = 'live'; LV.me = id; LV.hostId = id; LV.edit = true; LV.color = LIVE_COLORS[0];
-    LV.people.clear(); LV.people.set(id, {id, name:LV.name, color:LV.color, edit:true, pr:null, trail:[], lv:null, me:true});
+    LV.people.clear(); LV.people.set(id, {id, name:LV.name, color:LV.color, edit:true, cid:LV.cid, pr:null, trail:[], lv:null, me:true});
     LV.known.clear(); LV.pending.clear();
     for(const pg of S.pages){ pgId(pg); markKnown(pg); }
     LV.knownPages = S.pages.map(pgId).join(','); LV.knownMeta = metaSig();
@@ -5182,16 +5514,26 @@ async function startHosting(){
     else if(err && err.type==='network') toast('Connection to the matchmaker dropped. People already here stay connected.');
   });
 }
+function boardState(keys){
+  return {meta:metaNow(keys), cur:pgId(page()),
+    pages:S.pages.map(pg=>({id:pgId(pg), view:viewExact(pg), objs:pg.objects.map(o=>wireObj(o, pg, keys))}))};
+}
+function hostSync(L){
+  const keys = new Set(), st = boardState(keys);
+  for(const pg of S.pages) markKnown(pg);
+  sendAssets(L, keys);
+  linkSend(L, Object.assign({t:'sync'}, st));
+}
 function hostHandle(L, m){
   if(m.t==='hello'){
     if(L.ready) return;
     L.ready = true; L.name = liveName(m.name) || 'Guest'; L.edit = !!LV.key && m.key===LV.key;
+    L.cid = String(m.cid || '').slice(0, 20);
     L.color = LIVE_COLORS[LV.colorN++ % LIVE_COLORS.length];
-    LV.people.set(L.id, {id:L.id, name:L.name, color:L.color, edit:L.edit, pr:null, trail:[], lv:null});
+    LV.people.set(L.id, {id:L.id, name:L.name, color:L.color, edit:L.edit, cid:L.cid, pr:null, trail:[], lv:null});
     const keys = new Set();
-    const w = {t:'welcome', you:{id:L.id, color:L.color, edit:L.edit}, host:LV.name, people:peopleList(),
-      meta:metaNow(keys), cur:pgId(page()),
-      pages:S.pages.map(pg=>({id:pgId(pg), view:viewExact(pg), objs:pg.objects.map(o=>wireObj(o, pg, keys))}))};
+    const w = Object.assign({t:'welcome', you:{id:L.id, color:L.color, edit:L.edit}, host:LV.name, people:peopleList(),
+      locked:LV.locked, presenting:LV.presenting}, boardState(keys));
     for(const pg of S.pages) markKnown(pg);
     sendAssets(L, keys);
     linkSend(L, w);
@@ -5201,58 +5543,142 @@ function hostHandle(L, m){
     return;
   }
   if(!L.ready) return;
-  if(m.t==='asset'){ if(L.edit && typeof m.d==='string'){ gotAsset(m.k, m.d); L.assets.add(m.k); } return; }
+  const drawing = L.edit && !LV.locked;
+  if(m.t==='asset'){ if(drawing && typeof m.d==='string'){ gotAsset(m.k, m.d); L.assets.add(m.k); } return; }
   if(m.t==='ops'){
-    if(!L.edit) return;
+    if(!drawing){ hostSync(L); return; }     // they sent changes they may not make: put their copy right
     m.from = L.id;
     applyMsg(m);
     toGuests(m);
     return;
   }
   if(m.t==='pr'){ m.id = L.id; takePresence(m); toGuests(m, L); return; }
-  if(m.t==='lv'){ if(!L.edit) return; m.id = L.id; takeLive(m); toGuests(m, L); return; }
+  if(m.t==='lv'){ if(!drawing) return; m.id = L.id; takeLive(m); toGuests(m, L); return; }
+  if(m.t==='summon'){ if(!drawing) return; m.id = L.id; toGuests(m, L); takeSummon(m); return; }
 }
-function dropGuest(L){
+function dropGuest(L, quiet){
   if(!LV.links.has(L.id)) return;
   LV.links.delete(L.id);
   if(L.ready){
-    LV.people.delete(L.id);
+    LV.people.delete(L.id); LV.frames.delete(L.id);
     if(LV.follow===L.id) stopFollow();
     toGuests({t:'people', people:peopleList()});
-    toast(`${L.name} left`);
+    if(!quiet) toast(`${L.name} left`);
     renderSharePop(); syncLiveChip();
   }
 }
+/* what the host can do about other people */
+function setRole(id, edit){
+  const L = LV.links.get(id), p = LV.people.get(id); if(!L || !p) return;
+  L.edit = p.edit = edit;
+  linkSend(L, {t:'role', edit});
+  hostSync(L);
+  toGuests({t:'people', people:peopleList()});
+  renderSharePop();
+  toast(edit ? `${p.name} can draw now` : `${p.name} can only watch now`);
+}
+function kickPerson(id){
+  const L = LV.links.get(id); if(!L) return;
+  linkSend(L, {t:'kicked'});
+  const name = L.name;
+  dropGuest(L, true);
+  setTimeout(()=>{ try{ L.conn.close(); }catch(e){} }, 400);
+  LV.open = null; renderSharePop();
+  toast(`Removed ${name}`);
+}
+function eraseWorkOf(id){
+  const p = LV.people.get(id); if(!p || !p.cid) return;
+  let n = 0;
+  S.pages.forEach((pg, i)=>{
+    const keep = pg.objects.filter(o=>o.by!==p.cid);
+    if(keep.length===pg.objects.length) return;
+    n += pg.objects.length - keep.length;
+    if(i===S.page){ pushUndo(); S.selection = S.selection.filter(o=>o.by!==p.cid); }
+    pg.objects = keep;
+  });
+  sceneDirty = true; syncHistoryButtons();
+  toast(n ? `Erased ${n} thing${n===1 ? '' : 's'} ${p.name} drew` : `${p.name} hasn't drawn anything yet`);
+}
+function setLocked(on){
+  LV.locked = on;
+  toGuests({t:'lock', on});
+  if(on) for(const L of LV.links.values()) if(L.ready && L.edit) hostSync(L);
+  renderSharePop();
+  toast(on ? 'Only you can draw right now' : 'Everyone with the draw link can draw again');
+}
+function setPresenting(on){
+  LV.presenting = on;
+  toGuests({t:'present', on});
+  renderSharePop();
+  toast(on ? 'Everyone now follows your view' : 'People can look around on their own again');
+}
+function newLinks(){
+  LV.key = randId(8);
+  renderSharePop();
+  toast('New links made. The old draw link now only lets people watch.');
+}
 
 /* guest */
-async function joinLive(hostId, key){
-  LV.name = liveName($('lvName')?.value) || LV.name || 'Guest';
-  lsSet('sb-name', LV.name);
-  LV.state = 'joining'; renderSharePop();
+async function joinLive(hostId, key, again){
+  if(!again){ LV.name = liveName($('lvName')?.value) || LV.name || 'Guest'; lsSet('sb-name', LV.name); LV.state = 'joining'; LV.kicked = false; renderSharePop(); }
+  LV.joinKey = key;
   try{ await loadPeerJS(); }
-  catch(e){ LV.state = 'ask'; renderSharePop("Couldn't load the connection library. Check your internet connection."); return; }
+  catch(e){ if(again) return retryJoin(); LV.state = 'ask'; renderSharePop("Couldn't load the connection library. Check your internet connection."); return; }
   const peer = new window.Peer('screenboard-g' + randId(12), peerOpts());
   LV.peer = peer; LV.hostId = hostId;
-  const fail = msg => { if(LV.peer!==peer) return; stopLive(); LV.state = 'ask'; openShare(); renderSharePop(msg); };
-  const timer = setTimeout(()=> fail("Couldn't reach the host. The session may have ended, or a network is blocking it."), 20000);
+  const fail = msg => {
+    if(LV.peer!==peer) return;
+    if(again) return retryJoin();
+    stopLive(); LV.state = 'ask'; openShare(); renderSharePop(msg);
+  };
+  const timer = setTimeout(()=> fail("Couldn't reach the host. The session may have ended, or a network is blocking it."), again ? 10000 : 20000);
   peer.on('open', ()=>{
     const conn = peer.connect(hostId, {reliable:true, serialization:'raw'});
     const L = makeLink(conn);
-    conn.on('open', ()=>{ LV.links.set('host', L); linkSend(L, {t:'hello', name:LV.name, key}); });
+    conn.on('open', ()=>{ LV.links.set('host', L); linkSend(L, {t:'hello', name:LV.name, key, cid:LV.cid}); });
     conn.on('data', d=> linkRecv(L, d, (L2, m)=>{ if(m.t==='welcome') clearTimeout(timer); guestHandle(L2, m); }));
-    conn.on('close', ()=>{ if(LV.role==='guest' && LV.peer===peer) endedByHost('The live session ended. Your copy of the board stays here.'); });
+    conn.on('close', ()=>{
+      if(LV.peer!==peer || LV.role!=='guest') return;
+      if(LV.kicked) return;
+      clearTimeout(timer); retryJoin();
+    });
   });
   peer.on('error', err=>{
-    if(err && err.type==='peer-unavailable'){ clearTimeout(timer); fail("That live board isn't open anymore. Ask the host for a new link."); }
-    else if(LV.state==='joining'){ clearTimeout(timer); fail("Couldn't connect. Check your internet connection and try again."); }
+    if(LV.peer!==peer) return;
+    clearTimeout(timer);
+    if(err && err.type==='peer-unavailable'){
+      if(again) return endedByHost("The host's board closed, so the live session ended. Your copy stays here.");
+      fail("That live board isn't open anymore. Ask the host for a new link.");
+    }
+    else if(LV.state==='joining' || again) fail("Couldn't connect. Check your internet connection and try again.");
   });
+}
+/* a dropped connection: quietly try again a few times before giving up */
+function retryJoin(){
+  if(LV.role!=='guest') return;
+  const old = LV.peer; LV.peer = null;
+  try{ old && old.destroy(); }catch(e){}
+  LV.links.clear();
+  if(LV.retry >= 4) return endedByHost('Lost the connection to the host. Your copy of the board stays here.');
+  LV.retry++;
+  if(LV.state!=='reconnecting'){ LV.state = 'reconnecting'; toast('Connection dropped. Reconnecting…'); }
+  syncLiveChip(); renderSharePop();
+  setTimeout(()=>{ if(LV.role==='guest' && LV.state==='reconnecting') joinLive(LV.hostId, LV.joinKey, true); }, 1200*LV.retry);
+}
+function applyRoleUI(){
+  const vo = viewOnly();
+  document.body.classList.toggle('viewonly', vo);
+  if(vo && !['laser','select'].includes(S.tool)) setTool('laser');
+  if(vo){ S.selection = []; cancelActiveDrag(); closeTextEditor(); }
 }
 function guestHandle(L, m){
   switch(m.t){
     case 'welcome': return loadWelcome(m);
+    case 'sync': LV.pending.clear(); return loadBoardState(m, true);
     case 'people': {
       const keep = LV.people; LV.people = new Map();
       for(const p of m.people){ const o = keep.get(p.id) || {pr:null, trail:[], lv:null}; LV.people.set(p.id, Object.assign(o, p, {me:p.id===LV.me})); }
+      for(const id of [...LV.frames]) if(!LV.people.has(id)) LV.frames.delete(id);
       if(LV.follow && !LV.people.has(LV.follow)) stopFollow();
       renderSharePop(); syncLiveChip(); return;
     }
@@ -5260,36 +5686,76 @@ function guestHandle(L, m){
     case 'asset': return gotAsset(m.k, m.d);
     case 'pr': return takePresence(m);
     case 'lv': return takeLive(m);
-    case 'summon': { const i = S.pages.findIndex(p=>p.id===m.pg); if(i>=0){ if(i!==S.page) gotoPage(i); applyView(page(), m.view); } toast(`${person(m.id).name} brought everyone to their view`); return; }
-    case 'end': return endedByHost('The host ended the live session. Your copy of the board stays here.');
+    case 'summon': return takeSummon(m);
+    case 'role': {
+      LV.edit = !!m.edit; LV.pending.clear(); applyRoleUI(); renderSharePop();
+      if(LV.edit && S.tool==='laser') setTool('pen');
+      const h = LV.people.get(LV.hostId);
+      toast(LV.edit ? `${h ? h.name : 'The host'} lets you draw now` : `${h ? h.name : 'The host'} set you to watch only`);
+      return;
+    }
+    case 'lock': {
+      LV.locked = !!m.on; LV.pending.clear(); applyRoleUI(); renderSharePop();
+      if(!LV.locked && LV.edit && S.tool==='laser') setTool('pen');
+      if(LV.edit) toast(LV.locked ? 'The host paused drawing for everyone' : 'You can draw again');
+      return;
+    }
+    case 'present': {
+      LV.presenting = !!m.on;
+      if(m.on){ followPerson(LV.hostId, true); const h = LV.people.get(LV.hostId); toast(`${h ? h.name : 'The host'} is presenting. You're following along.`); }
+      else if(LV.follow===LV.hostId) stopFollow();
+      renderSharePop(); return;
+    }
+    case 'kicked': LV.kicked = true; return endedByHost('The host removed you from the session. Your copy of the board stays here.');
+    case 'end': LV.kicked = true; return endedByHost('The host ended the live session. Your copy of the board stays here.');
   }
 }
-function loadWelcome(m){
-  closeTextEditor(); closePops(); cancelActiveDrag();
-  LV.role = 'guest'; LV.state = 'live'; LV.me = m.you.id; LV.color = m.you.color; LV.edit = !!m.you.edit;
-  LV.everRemote = true;
-  LV.people.clear();
-  for(const p of m.people) LV.people.set(p.id, Object.assign({pr:null, trail:[], lv:null}, p, {me:p.id===LV.me}));
-  LV.known.clear(); LV.pending.clear(); LV.seq = 0;
+function takeSummon(m){
+  const i = S.pages.findIndex(p=>p.id===m.pg);
+  if(i>=0){ if(i!==S.page) gotoPage(i); applyView(page(), m.view); }
+  const p = LV.people.get(m.id);
+  toast(`${p ? p.name : 'Someone'} brought everyone to their view`);
+}
+/* put the shared board on screen; keepView keeps where you were looking */
+function loadBoardState(m, keepView){
+  closeTextEditor(); cancelActiveDrag();
+  const old = new Map(S.pages.map(p=>[p.id, p])), curId = page().id;
+  LV.known.clear();
   S.pages = m.pages.map(p=>{
+    const was = keepView && old.get(p.id);
     const pg = Object.assign(newPage(), {id:p.id});
-    const z = Math.round(p.view.lz);
-    pg.base = {x:hpDe(p.view.cx), y:hpDe(p.view.cy), z};
-    pg.view = {x:W/2, y:H/2, s:2**(p.view.lz - z)};
+    if(was){ pg.base = was.base; pg.view = was.view; pg.undo = was.undo; pg.redo = was.redo; pg.name = was.name; }
+    else {
+      const z = Math.round(p.view.lz);
+      pg.base = {x:hpDe(p.view.cx), y:hpDe(p.view.cy), z};
+      pg.view = {x:W/2, y:H/2, s:2**(p.view.lz - z)};
+    }
     pg.objects = p.objs.map(c=>{ const o = unwireObj(c, pg); remoteObjs.add(o); return o; });
     markKnown(pg);
     return pg;
   });
   if(!S.pages.length) S.pages.push(newPage());
-  S.page = Math.max(0, S.pages.findIndex(p=>p.id===m.cur));
+  const want = keepView && S.pages.some(p=>p.id===curId) ? curId : m.cur;
+  S.page = Math.max(0, S.pages.findIndex(p=>p.id===want));
   S.selection = [];
   LV.knownPages = S.pages.map(pgId).join(',');
   applyMeta(m.meta);
-  document.body.classList.toggle('viewonly', !LV.edit);
-  if(!LV.edit) setTool('laser');
   sceneDirty = true; syncPages(); syncHistoryButtons(); updateZoomLabel();
-  startTicking(); renderSharePop(); syncLiveChip(); closePops();
-  toast(LV.edit ? `You're on ${m.host}'s board` : `Watching ${m.host}'s board`);
+}
+function loadWelcome(m){
+  const back = LV.state==='reconnecting';
+  closePops();
+  LV.role = 'guest'; LV.state = 'live'; LV.retry = 0; LV.me = m.you.id; LV.color = m.you.color; LV.edit = !!m.you.edit;
+  LV.locked = !!m.locked; LV.presenting = !!m.presenting;
+  LV.everRemote = true;
+  LV.people.clear();
+  for(const p of m.people) LV.people.set(p.id, Object.assign({pr:null, trail:[], lv:null}, p, {me:p.id===LV.me}));
+  LV.pending.clear(); LV.seq = 0;
+  loadBoardState(m, back);
+  applyRoleUI();
+  if(LV.presenting && !back) LV.follow = LV.hostId;
+  startTicking(); renderSharePop(); syncLiveChip();
+  toast(back ? 'Reconnected' : viewOnly() ? `Watching ${m.host}'s board` : `You're on ${m.host}'s board`);
   if(location.hash) history.replaceState(null, '', location.pathname + location.search);
 }
 function endedByHost(msg){
@@ -5308,12 +5774,13 @@ function stopLive(){
   setTimeout(()=>{ try{ peer && peer.destroy(); }catch(e){} }, was==='host' ? 300 : 0);
   LV.links.clear(); LV.people.clear(); LV.pending.clear(); LV.known.clear();
   LV.role = null; LV.state = 'idle'; LV.follow = null; LV.hadLv = false;
+  LV.locked = false; LV.presenting = false; LV.frames.clear(); LV.open = null; LV.retry = 0;
   document.body.classList.remove('viewonly');
   syncLiveChip(); sceneDirty = true;
 }
 function startTicking(){ clearInterval(LV.timer); LV.timer = setInterval(liveTick, 50); }
 function liveTick(){
-  if(!LV.role) return;
+  if(!LV.role || LV.state!=='live') return;
   const now = performance.now();
   if(canEdit() && (LV.lastBuild!==sceneBuilds || now - LV.lastFull > 1000)){
     LV.lastBuild = sceneBuilds; LV.lastFull = now;
@@ -5346,11 +5813,12 @@ function liveTick(){
   // where my pointer is
   const pg = page(), lz = drag && drag.mode==='laser';
   const at = LV.ptr ? S2W(LV.ptr.x, LV.ptr.y) : null;
-  const v = pg.view, sig = `${pgId(pg)}|${at ? Math.round(LV.ptr.x)+','+Math.round(LV.ptr.y) : '-'}|${v.x.toFixed(1)},${v.y.toFixed(1)},${v.s}|${baseOf(pg).z}|${lz}`;
+  const v = pg.view, sig = `${pgId(pg)}|${at ? Math.round(LV.ptr.x)+','+Math.round(LV.ptr.y) : '-'}|${v.x.toFixed(1)},${v.y.toFixed(1)},${v.s}|${baseOf(pg).z}|${lz}|${W}x${H}|${S.selection.length}:${S.selection[0] ? S.selection[0].id : ''}`;
   if(sig!==LV.prSig || now - LV.lastPr > 1500){
     LV.prSig = sig; LV.lastPr = now;
     const xy = at ? toExact(pg, at.x, at.y) : null;
-    sendOut({t:'pr', id:LV.me, pg:pgId(pg), x:xy && xy[0], y:xy && xy[1], laser:!!lz, view:viewExact(pg)});
+    const sel = S.selection.length && S.selection.length <= 80 ? S.selection.map(o=>o.id) : null;
+    sendOut({t:'pr', id:LV.me, pg:pgId(pg), x:xy && xy[0], y:xy && xy[1], laser:!!lz, view:viewExact(pg), sel});
   }
 }
 function sendOut(msg){
@@ -5359,7 +5827,9 @@ function sendOut(msg){
 }
 function takePresence(m){
   const p = LV.people.get(m.id); if(!p) return;
-  p.pr = {pg:m.pg, x:m.x, y:m.y, view:m.view, t:performance.now()};
+  const moved = !p.pr || p.pr.pg!==m.pg;
+  p.pr = {pg:m.pg, x:m.x, y:m.y, view:m.view, sel:m.sel || null, t:performance.now()};
+  if(moved && openPop && openPop.el===$('sharePop')) renderSharePop();
   if(m.laser && m.x){ p.trail.push({pg:m.pg, x:m.x, y:m.y, t:performance.now()}); if(p.trail.length > 80) p.trail.shift(); }
   if(LV.follow===m.id && m.view){
     const i = S.pages.findIndex(q=>q.id===m.pg);
@@ -5372,24 +5842,90 @@ function takeLive(m){
 }
 
 /* ---- follow and summon ---- */
-function followPerson(id){ LV.follow = id; const p = LV.people.get(id); if(p && p.pr) takePresence(Object.assign({id, laser:false}, p.pr, {x:null})); renderSharePop(); syncLiveChip(); toast(`Following ${p ? p.name : ''}. Click the board to stop.`); }
+function followPerson(id, quiet){
+  LV.follow = id;
+  const p = LV.people.get(id);
+  if(p && p.pr) takePresence(Object.assign({id, laser:false}, p.pr, {x:null}));
+  renderSharePop(); syncLiveChip();
+  if(!quiet) toast(`Following ${p ? p.name : ''}. Click the board to stop.`);
+}
 function stopFollow(){ if(!LV.follow) return; LV.follow = null; renderSharePop(); syncLiveChip(); }
 function summonAll(){
   sendOut({t:'summon', id:LV.me, pg:pgId(page()), view:viewExact(page())});
   toast('Everyone is now looking where you are');
 }
-cv.addEventListener('pointerdown', ()=> stopFollow(), true);
+cv.addEventListener('pointerdown', ()=>{ if(LV.follow) toast(LV.presenting && LV.follow===LV.hostId ? 'Looking around on your own. Press Follow to rejoin.' : 'Stopped following'); stopFollow(); }, true);
 cv.addEventListener('wheel', ()=> stopFollow(), {capture:true, passive:true});
 cv.addEventListener('pointermove', e=>{ LV.ptr = {x:e.clientX, y:e.clientY}; }, {passive:true});
 cv.addEventListener('pointerleave', e=>{ if(e.pointerType!=='touch' && !drag) LV.ptr = null; });
 cv.addEventListener('pointerup', e=>{ if(e.pointerType==='touch') LV.ptr = null; });
 
 /* ---- other people on screen ---- */
+function fmtZoomLog2(lz){
+  const l = lz*Math.LOG10E*Math.LN2;
+  if(l > -2.5 && l < 3.5) return Math.round(10**l*100).toLocaleString() + '%';
+  let n = Math.floor(l), mant = 10**(l-n);
+  if(mant >= 9.95){ mant = 1; n++; }
+  return mant.toFixed(1) + '×10' + String(n).replace(/-/g,'⁻').replace(/\d/g, d=>'⁰¹²³⁴⁵⁶⁷⁸⁹'[d]);
+}
+function namePill(c, text, x, y, color){
+  c.font = '600 11.5px "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif';
+  const tw = c.measureText(text).width;
+  c.fillStyle = color;
+  c.beginPath(); c.roundRect ? c.roundRect(x, y, tw + 12, 19, 6) : c.rect(x, y, tw + 12, 19); c.fill();
+  c.fillStyle = lum(color) > .45 ? '#15171a' : '#fff';
+  c.fillText(text, x + 6, y + 13.5);
+  return tw + 12;
+}
+/* where someone's screen sits on yours, in screen pixels */
+function frameOf(pg, V){
+  const B = baseOf(pg), ctr = fromExact(pg, V.cx, V.cy), k = 2**(B.z - V.lz);
+  const a = W2S(ctr.x - V.w/2*k, ctr.y - V.h/2*k), b = W2S(ctr.x + V.w/2*k, ctr.y + V.h/2*k);
+  return {x0:a.x, y0:a.y, x1:b.x, y1:b.y};
+}
 function drawPeople(c){
   if(!LV.role) return;
   const pg = page(), pid = pgId(pg), v = pg.view, now = performance.now();
+  let byId = null;
   for(const p of LV.people.values()){
     if(p.me) continue;
+    const pr = p.pr, here = pr && pr.pg===pid && now - pr.t < 60000;
+    // their screen
+    if(LV.frames.has(p.id) && here && pr.view && pr.view.w){
+      const f = frameOf(pg, pr.view), L = 1e5;
+      const x0 = clamp(f.x0,-L,L), y0 = clamp(f.y0,-L,L), x1 = clamp(f.x1,-L,L), y1 = clamp(f.y1,-L,L);
+      const label = `${p.name} · ${fmtZoomLog2(pr.view.lz)}`;
+      c.save();
+      if(x1 < 0 || y1 < 0 || x0 > W || y0 > H){
+        // off to one side: a chip on the edge pointing at it
+        const cx = (x0+x1)/2, cy = (y0+y1)/2, dx = cx - W/2, dy = cy - H/2;
+        const t = Math.min((W/2 - 70)/Math.abs(dx || 1e-9), (H/2 - 40)/Math.abs(dy || 1e-9));
+        const ex = W/2 + dx*t, ey = H/2 + dy*t, ang = Math.atan2(dy, dx);
+        c.globalAlpha = .92;
+        c.translate(ex, ey);
+        c.fillStyle = p.color;
+        c.save(); c.rotate(ang); c.beginPath(); c.moveTo(14,0); c.lineTo(4,-6); c.lineTo(4,6); c.closePath(); c.fill(); c.restore();
+        namePill(c, label, dx > 0 ? -12 - c.measureText(label).width - 24 : 12, -9, p.color);
+      } else {
+        c.strokeStyle = p.color; c.lineWidth = 2; c.globalAlpha = .9;
+        c.strokeRect(x0, y0, x1-x0, y1-y0);
+        c.globalAlpha = .05; c.fillStyle = p.color; c.fillRect(x0, y0, x1-x0, y1-y0);
+        c.globalAlpha = 1;
+        namePill(c, label, clamp(x0, 4, W-160), clamp(y0 - 23, 4, H-24), p.color);
+      }
+      c.restore();
+    }
+    // what they have selected
+    if(here && pr.sel && pr.sel.length){
+      if(!byId) byId = new Map(pg.objects.map(o=>[o.id, o]));
+      c.save(); c.strokeStyle = p.color; c.lineWidth = 1.5; c.setLineDash([5,3]); c.globalAlpha = .9;
+      for(const id of pr.sel){
+        const o = byId.get(id); if(!o || o._off) continue;
+        const pts = corners(o).map(q=>W2S(q.x, q.y));
+        c.beginPath(); pts.forEach((q,i)=> i ? c.lineTo(q.x,q.y) : c.moveTo(q.x,q.y)); c.closePath(); c.stroke();
+      }
+      c.restore();
+    }
     // their stroke in progress
     if(p.lv && p.lv.pg===pid){
       const B = baseOf(pg);
@@ -5415,24 +5951,17 @@ function drawPeople(c){
       c.restore();
     }
     // cursor
-    const pr = p.pr;
-    if(!pr || pr.pg!==pid || !pr.x || now - pr.t > 12000){ p.sx = null; continue; }
+    if(!here || !pr.x || now - pr.t > 12000){ p.sx = null; continue; }
     const w = fromExact(pg, pr.x, pr.y), s = W2S(w.x, w.y);
     if(!isFinite(s.x) || !isFinite(s.y)) continue;
     if(p.sx==null || Math.hypot(s.x-p.sx, s.y-p.sy) > 400){ p.sx = s.x; p.sy = s.y; }
     else { p.sx += (s.x - p.sx)*.45; p.sy += (s.y - p.sy)*.45; }
-    const x = p.sx, y = p.sy;
     c.save();
-    c.translate(x, y);
+    c.translate(p.sx, p.sy);
     c.fillStyle = p.color; c.strokeStyle = 'rgba(0,0,0,.55)'; c.lineWidth = 1.2; c.lineJoin = 'round';
     c.beginPath(); c.moveTo(0,0); c.lineTo(0,15); c.lineTo(4,11.5); c.lineTo(7,18); c.lineTo(9.6,16.8); c.lineTo(6.8,10.6); c.lineTo(11.6,10.6); c.closePath();
     c.fill(); c.stroke();
-    c.font = '600 11.5px "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif';
-    const tw = c.measureText(p.name).width;
-    c.fillStyle = p.color;
-    c.beginPath(); c.roundRect ? c.roundRect(12, 17, tw + 12, 19, 6) : c.rect(12, 17, tw + 12, 19); c.fill();
-    c.fillStyle = lum(p.color) > .45 ? '#15171a' : '#fff';
-    c.fillText(p.name, 18, 30.5);
+    namePill(c, p.name, 12, 17, p.color);
     c.restore();
   }
 }
@@ -5444,9 +5973,10 @@ function inviteLinks(){
 }
 function syncLiveChip(){
   const b = $('shareBtn'); if(!b) return;
-  const n = LV.people.size, on = LV.role && LV.state==='live';
+  const n = LV.people.size, on = LV.role && (LV.state==='live' || LV.state==='reconnecting');
   b.classList.toggle('live', !!on);
-  $('shareLbl').textContent = on ? (LV.follow ? 'Following' : n > 1 ? `Live · ${n}` : 'Live') : 'Share';
+  b.classList.toggle('warn', LV.state==='reconnecting');
+  $('shareLbl').textContent = LV.state==='reconnecting' ? 'Reconnecting' : on ? (LV.follow ? 'Following' : n > 1 ? `Live · ${n}` : 'Live') : 'Share';
   b.setAttribute('data-tip', on ? 'Live session' : 'Share live');
 }
 function copyText(t, btn){
@@ -5455,22 +5985,45 @@ function copyText(t, btn){
   else fallback();
   function fallback(){ const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); done(); }catch(e){} ta.remove(); }
 }
+const IC_FRAME = '<svg viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M8 20.5h8"/></svg>';
+const IC_MORE = '<svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18" cy="12" r="1.4"/></svg>';
 function peopleHtml(){
+  const myPg = pgId(page());
   const rows = [...LV.people.values()].map(p=>{
-    const tag = p.me ? '<em>you</em>' : p.id===LV.hostId ? '<em>host</em>' : !p.edit ? '<em>watching</em>' : '';
-    const act = p.me ? '' : `<button class="tg${LV.follow===p.id ? ' on' : ''}" data-follow="${escHtml(p.id)}">${LV.follow===p.id ? 'Following' : 'Follow'}</button>`;
-    return `<div class="lv-row"><i style="background:${p.color}"></i><span>${escHtml(p.name)}</span>${tag}${act}</div>`;
+    const id = escHtml(p.id);
+    const tags = [];
+    if(p.me) tags.push('you'); else if(p.id===LV.hostId) tags.push('host');
+    if(!p.me && !p.edit) tags.push('watching');
+    if(!p.me && p.pr && p.pr.pg!==myPg){ const i = S.pages.findIndex(q=>q.id===p.pr.pg); if(i>=0) tags.push('board ' + (i+1)); }
+    let act = '';
+    if(!p.me){
+      act += `<button class="lv-ic${LV.frames.has(p.id) ? ' on' : ''}" data-frame="${id}" title="Show their screen on yours">${IC_FRAME}</button>`;
+      act += `<button class="tg${LV.follow===p.id ? ' on' : ''}" data-follow="${id}">${LV.follow===p.id ? 'Following' : 'Follow'}</button>`;
+      if(LV.role==='host') act += `<button class="lv-ic${LV.open===p.id ? ' on' : ''}" data-more="${id}" title="More">${IC_MORE}</button>`;
+    }
+    let more = '';
+    if(LV.role==='host' && LV.open===p.id && !p.me){
+      more = `<div class="lv-more">
+        <button class="tg" data-role="${id}">${p.edit ? 'Make watch only' : 'Let them draw'}</button>
+        <button class="tg" data-erase="${id}">Erase their drawings</button>
+        <button class="tg danger" data-kick="${id}">Remove</button></div>`;
+    }
+    return `<div class="lv-row"><i style="background:${p.color}"></i><span>${escHtml(p.name)}</span><em>${tags.join(' · ')}</em>${act}</div>${more}`;
   }).join('');
   return `<div class="lv-h">People here</div><div class="lv-people">${rows}</div>`;
 }
 function renderSharePop(note){
   const el = $('sharePop'); if(!el) return;
+  const keepScroll = el.querySelector('.lv-people')?.scrollTop || 0;
   const msg = note ? `<p class="lv-msg">${escHtml(note)}</p>` : '';
   const nameFld = `<label class="fld"><span>Your name</span><input id="lvName" maxlength="24" autocomplete="nickname" value="${escHtml(LV.name || lsGet('sb-name'))}" placeholder="Name shown to others"></label>`;
   let h = '';
   if(LV.state==='starting' || LV.state==='joining'){
     h = `<div class="lv-title">${LV.state==='starting' ? 'Starting the session…' : 'Joining…'}</div><p class="lv-note">This takes a few seconds.</p>
       <div class="lv-act"><button class="btn" id="lvCancel">Cancel</button></div>`;
+  } else if(LV.state==='reconnecting'){
+    h = `<div class="lv-title"><i class="lv-dot warn"></i>Reconnecting…</div><p class="lv-note">The connection to the host dropped. Trying again (${LV.retry} of 4). Your board stays as it is.</p>
+      <div class="lv-act"><button class="btn" id="lvLeave">Stop trying</button></div>`;
   } else if(LV.state==='ask'){
     h = `<div class="lv-title">Join a live board</div>${msg}
       <p class="lv-note">${LV.invite && LV.invite.key ? 'You can draw along with everyone.' : 'This link lets you watch and point, but not draw.'} Joining replaces what's on your screen with the shared board.</p>
@@ -5481,29 +6034,43 @@ function renderSharePop(note){
       <p class="lv-note">Anyone with a link can join until you end the session or close this board.</p>
       <div class="lv-link"><div><b>Can draw</b><span>${escHtml(L.edit)}</span></div><button class="tg" data-copy="edit">Copy</button></div>
       <div class="lv-link"><div><b>View only</b><span>${escHtml(L.view)}</span></div><button class="tg" data-copy="view">Copy</button></div>
+      <div class="lv-sw"><label><input type="checkbox" id="lvLock"${LV.locked ? ' checked' : ''}><span><b>Only I can draw</b>Pauses everyone else's pens</span></label>
+        <label><input type="checkbox" id="lvPresent"${LV.presenting ? ' checked' : ''}><span><b>Everyone follows me</b>Their view tracks yours, zoom included</span></label></div>
       ${peopleHtml()}
-      <div class="lv-act"><button class="btn" id="lvSummon"${LV.people.size < 2 ? ' disabled' : ''}>Bring everyone here</button><button class="btn danger" id="lvEnd">End session</button></div>`;
+      <div class="lv-act"><button class="btn lv-left" id="lvNewLinks" title="The old draw link stops letting people draw">New links</button><button class="btn" id="lvSummon"${LV.people.size < 2 ? ' disabled' : ''}>Bring everyone here</button><button class="btn danger" id="lvEnd">End</button></div>`;
   } else if(LV.role==='guest'){
-    const host = LV.people.get(LV.hostId);
-    h = `<div class="lv-title"><i class="lv-dot"></i>${escHtml(host ? host.name : 'Host')}'s board</div>
-      <p class="lv-note">${LV.edit ? 'Everything you draw shows up for everyone. Undo only takes back your own changes.' : "You're watching. Use the laser pointer to point things out."}</p>
+    const host = LV.people.get(LV.hostId), hn = escHtml(host ? host.name : 'The host');
+    const note2 = LV.locked && LV.edit ? `${hn} has paused drawing for now. You can still point with the laser.`
+      : !LV.edit ? "You're watching. Use the laser pointer to point things out."
+      : 'Everything you draw shows up for everyone. Undo only takes back your own changes.';
+    h = `<div class="lv-title"><i class="lv-dot"></i>${hn}'s board</div>
+      <p class="lv-note">${note2}${LV.presenting ? ` ${hn} is presenting, so your view follows theirs.` : ''}</p>
       ${peopleHtml()}
-      <div class="lv-act">${LV.edit ? '<button class="btn" id="lvSummon">Bring everyone here</button>' : ''}<button class="btn" id="lvLeave">Leave</button></div>`;
+      <div class="lv-act">${canEdit() ? '<button class="btn" id="lvSummon">Bring everyone here</button>' : ''}<button class="btn" id="lvLeave">Leave</button></div>`;
   } else {
     h = `<div class="lv-title">Draw together, live</div>${msg}
       <p class="lv-note">Start a session and send the link. People join straight from their browser, with nothing to install, for as long as this board stays open.</p>
       ${nameFld}<div class="lv-act"><button class="btn primary" id="lvStart">Start live session</button></div>`;
   }
   el.innerHTML = h;
+  const pl = el.querySelector('.lv-people'); if(pl) pl.scrollTop = keepScroll;
   const on = (id, f)=>{ const b = $(id); if(b) b.onclick = f; };
   on('lvStart', startHosting);
   on('lvJoin', ()=> LV.invite && joinLive(LV.invite.host, LV.invite.key));
   on('lvCancel', ()=>{ const was = LV.state; stopLive(); if(was==='joining'){ LV.state = 'ask'; } else { LV.invite = null; if(location.hash.startsWith('#live=')) history.replaceState(null, '', location.pathname + location.search); } renderSharePop(); if(was!=='joining') closePops(); });
   on('lvEnd', ()=>{ stopLive(); renderSharePop(); toast('Session ended'); });
-  on('lvLeave', ()=>{ stopLive(); renderSharePop(); closePops(); toast('You left. Your copy of the board stays here.'); });
+  on('lvLeave', ()=>{ LV.kicked = true; stopLive(); renderSharePop(); closePops(); toast('You left. Your copy of the board stays here.'); });
   on('lvSummon', ()=>{ summonAll(); closePops(); });
+  on('lvNewLinks', newLinks);
+  const lk = $('lvLock'); if(lk) lk.onchange = ()=> setLocked(lk.checked);
+  const ps = $('lvPresent'); if(ps) ps.onchange = ()=> setPresenting(ps.checked);
   el.querySelectorAll('[data-copy]').forEach(b=> b.onclick = ()=> copyText(inviteLinks()[b.dataset.copy], b));
   el.querySelectorAll('[data-follow]').forEach(b=> b.onclick = ()=>{ const id = b.dataset.follow; LV.follow===id ? stopFollow() : followPerson(id); });
+  el.querySelectorAll('[data-frame]').forEach(b=> b.onclick = ()=>{ const id = b.dataset.frame; LV.frames.has(id) ? LV.frames.delete(id) : LV.frames.add(id); renderSharePop(); });
+  el.querySelectorAll('[data-more]').forEach(b=> b.onclick = ()=>{ const id = b.dataset.more; LV.open = LV.open===id ? null : id; renderSharePop(); });
+  el.querySelectorAll('[data-role]').forEach(b=> b.onclick = ()=>{ const p = LV.people.get(b.dataset.role); if(p) setRole(p.id, !p.edit); });
+  el.querySelectorAll('[data-erase]').forEach(b=> b.onclick = ()=> eraseWorkOf(b.dataset.erase));
+  el.querySelectorAll('[data-kick]').forEach(b=> b.onclick = ()=> kickPerson(b.dataset.kick));
   const nm = $('lvName');
   if(nm) nm.addEventListener('keydown', e=>{ e.stopPropagation(); if(e.key==='Enter'){ ($('lvJoin') || $('lvStart'))?.click(); } });
 }
@@ -5531,6 +6098,7 @@ function checkInvite(){
 window.addEventListener('hashchange', checkInvite);
 window.addEventListener('pagehide', ()=>{ if(LV.role==='host') for(const L of LV.links.values()) linkSend(L, {t:'end'}); });
 setTimeout(checkInvite, 0);
+
 
 window.addEventListener('beforeunload', e=>{
   const any = S.pages.some(p=>p.objects.length) || (REC && REC.rec) || LV.role==='host';

@@ -1,5 +1,5 @@
 /* Bump CACHE when you change index.html, or visitors keep the old copy. */
-const CACHE = 'screenboard-v11';
+const CACHE = 'screenboard-v12';
 const ASSETS = ['./', './index.html', './manifest.webmanifest',
                 './icon-192.png', './icon-512.png', './icon-maskable.png'];
 
