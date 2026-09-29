@@ -298,6 +298,37 @@
   .btn[disabled]{opacity:.35;pointer-events:none}
   @media (max-width:520px){ .row4{grid-template-columns:repeat(2,minmax(0,1fr))} }
   @media (pointer:coarse){ .btn{height:38px} .chips button{height:34px;min-width:38px} }
+
+  /* ---- live sessions ---- */
+  .sharechip{color:var(--fg);gap:7px;padding:0 10px 0 8px}
+  .sharechip svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .sharechip span{font-size:12.5px;font-weight:500}
+  .sharechip.live{background:rgba(64,192,87,.16);color:#8ce99a}
+  .sharechip.live:hover{background:rgba(64,192,87,.24)}
+  @media (max-width:760px){ .sharechip span{display:none} .sharechip{padding:0 9px} }
+  #sharePop{width:320px;max-width:calc(100vw - 24px);padding:14px}
+  #sharePop .fld{margin:10px 0 2px}
+  .lv-title{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--fg)}
+  .lv-dot{width:8px;height:8px;border-radius:50%;background:#40c057;box-shadow:0 0 0 3px rgba(64,192,87,.25)}
+  .lv-note{margin:6px 0 0;font-size:12.5px;line-height:1.45;color:var(--fg-dim)}
+  .lv-msg{margin:8px 0 0;font-size:12.5px;line-height:1.45;color:#ffc9c9}
+  .lv-link{display:flex;align-items:center;gap:10px;margin-top:10px;padding:8px 8px 8px 10px;border-radius:8px;background:rgba(0,0,0,.25);box-shadow:inset 0 0 0 1px var(--hair)}
+  .lv-link div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .lv-link b{font-size:12px;font-weight:600;color:var(--fg)}
+  .lv-link span{font-size:11.5px;color:var(--fg-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:all}
+  .lv-h{margin:14px 0 6px;font-size:11.5px;color:var(--fg-dim);text-transform:uppercase;letter-spacing:.05em}
+  .lv-people{display:flex;flex-direction:column;gap:2px;max-height:190px;overflow:auto}
+  .lv-row{display:flex;align-items:center;gap:8px;min-height:30px;font-size:13px;color:var(--fg)}
+  .lv-row>i{width:9px;height:9px;border-radius:50%;flex:none}
+  .lv-row span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lv-row em{font-style:normal;font-size:11.5px;color:var(--fg-dim)}
+  .lv-act{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+  .btn.danger{color:#ffa8a8}
+  .btn.danger:hover{background:rgba(250,82,82,.15)}
+  body.viewonly #tools > :not([data-tool=select]):not([data-tool=laser]),
+  body.viewonly #colorChip, body.viewonly #styleChip, body.viewonly #addPage, body.viewonly #selbar,
+  body.viewonly #undo, body.viewonly #redo, body.viewonly #imgBtn, body.viewonly #openBtn, body.viewonly #clearBtn,
+  body.viewonly #delPage, body.viewonly #themeBtn, body.viewonly #recBtn, body.viewonly #topright > i.div:first-of-type{display:none !important}
 </style>
 </head>
 <body>
@@ -306,6 +337,8 @@
 <div id="topright" class="chrome surface">
   <button class="b" id="undo" data-tip="Undo"><svg viewBox="0 0 24 24"><path d="M4 9h11a5 5 0 0 1 0 10h-6"/><path d="M8 5 4 9l4 4"/></svg></button>
   <button class="b" id="redo" data-tip="Redo"><svg viewBox="0 0 24 24"><path d="M20 9H9a5 5 0 0 0 0 10h6"/><path d="m16 5 4 4-4 4"/></svg></button>
+  <i class="div"></i>
+  <button class="chip sharechip" id="shareBtn" data-tip="Share live"><svg viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.6-3.3 2.8-5 5.5-5s4.9 1.7 5.5 5"/><circle cx="17" cy="9.5" r="2.4"/><path d="M16.2 14.1c2.6-.3 4.2 1.3 4.6 4.1"/></svg><span id="shareLbl">Share</span></button>
   <i class="div"></i>
   <button class="b" id="hideBtn" data-tip="Hide the controls (Tab)"><svg viewBox="0 0 24 24"><path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z"/><circle cx="12" cy="12" r="2.4"/></svg></button>
   <button class="chip menuchip" id="menuBtn" data-tip="Menu"><svg viewBox="0 0 24 24"><path d="M4 8h9M17.5 8H20M4 16h2.5M11 16h9"/><circle cx="15" cy="8" r="2.4"/><circle cx="8.5" cy="16" r="2.4"/></svg><span>Menu</span></button>
@@ -400,6 +433,8 @@
     <button class="btn" id="dlgCancel" type="button">Cancel</button>
     <button class="btn primary" id="dlgOk" type="button">Add</button></div>
 </div></div>
+
+<div id="sharePop" class="pop"></div>
 
 <div id="menu" class="pop menu">
   <button class="mi" id="imgBtn"><span>Add a photo</span><em>Ctrl V</em></button>
@@ -571,7 +606,7 @@ const S = {
   color:THEMES.chalkboard.palette[0], size:5, fill:false, dash:false,
   pages:[], page:0, selection:[], uiHidden:false
 };
-function newPage(){ return {objects:[], undo:[], redo:[], view:{x:0,y:0,s:1}, base:{x:{m:0n,e:0}, y:{m:0n,e:0}, z:0}}; }
+function newPage(){ return {id:uid(), objects:[], undo:[], redo:[], view:{x:0,y:0,s:1}, base:{x:{m:0n,e:0}, y:{m:0n,e:0}, z:0}}; }
 S.pages.push(newPage());
 const page = () => S.pages[S.page];
 const view = () => page().view;
@@ -656,14 +691,14 @@ function pushUndo(){
 function undo(){
   const p = page(); if(!p.undo.length) return;
   p.redo.push(p.objects.slice());
-  p.objects = p.undo.pop();
+  p.objects = mergeSnapshot(p.objects, p.undo.pop());
   S.selection = S.selection.filter(o=>p.objects.includes(o));
   sceneDirty = true; syncHistoryButtons();
 }
 function redo(){
   const p = page(); if(!p.redo.length) return;
   p.undo.push(p.objects.slice());
-  p.objects = p.redo.pop();
+  p.objects = mergeSnapshot(p.objects, p.redo.pop());
   S.selection = S.selection.filter(o=>p.objects.includes(o));
   sceneDirty = true; syncHistoryButtons();
 }
@@ -1077,6 +1112,8 @@ function drawOverlay(){
     ctx.restore();
   }
 
+  drawPeople(ctx);
+
   // marquee
   const edge = th.dark ? '#e9ecf1' : '#2b2f36';
   const face = th.dark ? '#ffffff' : '#ffffff';
@@ -1134,7 +1171,7 @@ function frame(){
   syncContrastPop();
   const v = view();
   const key = [v.x|0,v.y|0,v.s.toFixed(4),W,H,S.theme,S.grid,S.page,page().objects.length].join('|');
-  if(sceneDirty || key!==sceneKey){ rebuildScene(); sceneKey = key; sceneDirty = false; }
+  if(sceneDirty || key!==sceneKey){ rebuildScene(); sceneBuilds++; sceneKey = key; sceneDirty = false; }
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,cv.width,cv.height);
   ctx.drawImage(sceneCv,0,0);
@@ -1241,7 +1278,7 @@ function moveGesture(){
 }
 
 function onDown(e){
-  if(e.button===2){
+  if(e.button===2 && !viewOnly()){
     // right-drag: box-select with any tool
     if(drag) return;
     $('hint')?.remove(); closeTextEditor(); closePops();
@@ -1261,7 +1298,7 @@ function onDown(e){
   lastPt = null; smoothP = .85; lastTime = performance.now();
 
   // pan
-  if(e.button===1 || spaceDown){
+  if(e.button===1 || spaceDown || (viewOnly() && S.tool!=='laser')){
     drag = {mode:'pan', sx:sp.x, sy:sp.y, vx:view().x, vy:view().y};
     cv.style.cursor='grabbing';
     return;
@@ -1817,10 +1854,10 @@ $('imgBtn').addEventListener('click', ()=> $('fileImg').click());
 window.addEventListener('dragover', e=>{ e.preventDefault(); });
 window.addEventListener('drop', e=>{
   e.preventDefault();
-  if(e.dataTransfer.files.length) readFiles(e.dataTransfer.files, S2W(e.clientX,e.clientY));
+  if(e.dataTransfer.files.length && !viewOnly()) readFiles(e.dataTransfer.files, S2W(e.clientX,e.clientY));
 });
 window.addEventListener('paste', e=>{
-  if(editing || dlgOpen()) return;
+  if(editing || dlgOpen() || viewOnly()) return;
   if(/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName||'')) return;
   const items = e.clipboardData?.items || [];
   let used = false;
@@ -1874,7 +1911,7 @@ $('fileOpen').addEventListener('change', e=>{
     try{
       const d = JSON.parse(r.result);
       if(!d.pages) throw new Error('bad file');
-      S.pages = d.pages.map(p=>({objects:(p.objects||[]).map(deObj), undo:[], redo:[],
+      S.pages = d.pages.map(p=>({id:uid(), objects:(p.objects||[]).map(deObj), undo:[], redo:[],
         view: p.view && p.view.s>0 ? {x:+p.view.x||0, y:+p.view.y||0, s:+p.view.s} : {x:0,y:0,s:1},
         base: p.base ? {x:hpDe(p.base.x), y:hpDe(p.base.y), z:+p.base.z||0} : {x:HP0, y:HP0, z:0}}));
       S.page = 0; S.selection = [];
@@ -4714,6 +4751,10 @@ window.addEventListener('keydown', e=>{
   const mod = e.ctrlKey||e.metaKey;
 
   if(e.code==='Space' && !spaceDown){ spaceDown = true; updateCursor(); e.preventDefault(); return; }
+  if(viewOnly()){
+    const k = e.key.toLowerCase();
+    if(mod ? !['s','0','e'].includes(k) : !['tab','escape','pageup','pagedown','?','f','l','v'].includes(k)) return;
+  }
 
   if(mod){
     const k = e.key.toLowerCase();
@@ -4798,8 +4839,701 @@ setTimeout(()=>{ const h=$('hint'); if(h){ h.style.opacity='0'; setTimeout(()=>h
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   window.addEventListener('load', ()=> navigator.serviceWorker.register('sw.js').catch(()=>{}));
 }
+
+/* ================= live sessions =================
+   One person hosts and everyone else connects straight to them (WebRTC through
+   PeerJS's free matchmaking server). The host decides the order of every change
+   and passes it on, so every copy of the board ends up the same. The room only
+   exists while the host's board is open. */
+const PEERJS_URL = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
+const LIVE_COLORS = ['#ff6b6b','#4dabf7','#51cf66','#fcc419','#cc5de8','#ff922b','#20c997','#f06595','#94d82d','#748ffc'];
+const LIVE_CHUNK = 16000;
+const BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+const LV = {
+  role:null,            // null | 'host' | 'guest'
+  state:'idle',         // idle | starting | live | joining | ask
+  peer:null, me:'', hostId:'', key:'', edit:true, name:'', color:LIVE_COLORS[0],
+  links:new Map(),      // host: peer id → link; guest: one link to the host
+  people:new Map(),     // id → {id, name, color, edit, pr, trail, lv, sx, sy}
+  known:new Map(), knownPages:'', knownMeta:'',
+  pending:new Map(), seq:0,
+  assets:new Map(), assetKey:new Map(),
+  follow:null, timer:0, lastPr:0, prSig:'', lastLv:0, hadLv:false, lastBuild:-1, lastFull:0,
+  ptr:null, invite:null, colorN:1, everRemote:false
+};
+const remoteObjs = new WeakSet(), remoteDeleted = new Set();
+let sceneBuilds = 0;
+const viewOnly = () => LV.role==='guest' && !LV.edit;
+const canEdit = () => LV.role==='host' || (LV.role==='guest' && LV.edit);
+const liveName = s => String(s||'').replace(/\s+/g,' ').trim().slice(0,24);
+function randId(n){ const a = new Uint8Array(n); crypto.getRandomValues(a); return Array.from(a, b=>'abcdefghijkmnpqrstuvwxyz23456789'[b%32]).join(''); }
+function lsGet(k){ try{ return localStorage.getItem(k) || ''; }catch(e){ return ''; } }
+function lsSet(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
+const pgId = pg => pg.id || (pg.id = uid());
+const escHtml = s => String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---- photos travel once, by content key ---- */
+function assetKeyOf(src){
+  if(!src) return null;
+  let k = LV.assetKey.get(src); if(k) return k;
+  let h = 0x811c9dc5, h2 = 0;
+  for(let i=0;i<src.length;i++){ const c = src.charCodeAt(i); h = Math.imul(h ^ c, 0x01000193); h2 = (h2*31 + c) | 0; }
+  k = src.length.toString(36) + '-' + (h>>>0).toString(36) + (h2>>>0).toString(36);
+  LV.assetKey.set(src, k); LV.assets.set(k, src);
+  return k;
+}
+function gotAsset(k, d){
+  LV.assets.set(k, d); LV.assetKey.set(d, k);
+  let hit = false;
+  for(const pg of S.pages) for(const o of pg.objects) if(o._asset===k){ o.src = d; delete o._asset; hit = true; }
+  if(LV.pendingBg===k){ LV.pendingBg = null; setBackgroundImage(d); LV.knownMeta = metaSig(); }
+  if(hit) sceneDirty = true;
+}
+
+/* ---- objects on the wire: exact positions, no view-dependent numbers ---- */
+const WIRE_SKIP = new Set(['x','y','w','h','size','points','src']);
+function scalarSig(o){
+  let s = o.type;
+  for(const k in o){
+    if(k.charCodeAt(0)===95 || WIRE_SKIP.has(k) || k==='svg' || k==='id') continue;
+    const v = o[k];
+    s += '|' + k + ':' + (v && typeof v==='object' ? JSON.stringify(v) : v);
+  }
+  if(o.src!=null) s += '|src:' + (o._asset || assetKeyOf(o.src));
+  if(o.svg) s += '|svg:' + o.svg.length;
+  return s;
+}
+function wireObj(o, pg, keys){
+  if(!o._off && (!o._P || o._sig !== geoSig(o))) syncExact(o, baseOf(pg));
+  const c = {};
+  for(const k in o){ if(k.charCodeAt(0)===95 || WIRE_SKIP.has(k)) continue; c[k] = o[k]; }
+  const P = o._P;
+  c._P = {ox:hpSer(P.ox), oy:hpSer(P.oy), z:P.z, w:P.w, h:P.h, size:P.size};
+  if(P.pts) c._P.pts = Array.from(P.pts);
+  if(o.points) c.pp = o.points.map(p=>p.p);
+  if(o.src!=null){ const k = o._asset || assetKeyOf(o.src); c.src = '@' + k; if(keys) keys.add(k); }
+  return c;
+}
+function unwireObj(c, pg){
+  const o = Object.assign({}, c), P = c._P;
+  o._P = {ox:hpDe(P.ox), oy:hpDe(P.oy), z:P.z, w:P.w, h:P.h, size:P.size, pts:P.pts ? Float64Array.from(P.pts) : undefined};
+  if(c.pp){ o.points = c.pp.map(p=>({x:0, y:0, p:p==null ? undefined : p})); delete o.pp; }
+  if(typeof c.src==='string' && c.src[0]==='@'){
+    const k = c.src.slice(1), d = LV.assets.get(k);
+    if(d) o.src = d; else { o.src = BLANK_IMG; o._asset = k; }
+  }
+  if(!o.points){ o.x = 0; o.y = 0; }
+  if(P.w!=null) o.w = P.w; if(P.h!=null) o.h = P.h; if(P.size!=null) o.size = P.size;
+  deriveFrom(o, baseOf(pg));
+  return o;
+}
+
+/* ---- the board's look ---- */
+function metaNow(keys){
+  const bg = bgImg.src ? assetKeyOf(bgImg.src) : null;
+  if(bg && keys) keys.add(bg);
+  return {theme:S.theme, custom:S.customColor||null, bg};
+}
+function metaSig(){ const m = metaNow(); return `${m.theme}|${m.custom}|${m.bg}`; }
+function applyMeta(m){
+  if(m.custom){ S.customColor = m.custom; makeCustomTheme(m.custom); }
+  const want = m.bg ? LV.assets.get(m.bg) : null;
+  if(m.bg && !want) LV.pendingBg = m.bg;
+  else if((want||null) !== (bgImg.src||null)) setBackgroundImage(want);
+  if(THEMES[m.theme] && m.theme!==S.theme) setTheme(m.theme);
+  syncSurfacePop();
+  LV.knownMeta = metaSig();
+}
+
+/* ---- where someone is looking, exactly ---- */
+function viewExact(pg){
+  const v = pg.view, B = baseOf(pg), cx = (W/2 - v.x)/v.s, cy = (H/2 - v.y)/v.s;
+  return {cx:hpSer(hpAdd(B.x, hpFromFloat(cx, B.z))), cy:hpSer(hpAdd(B.y, hpFromFloat(cy, B.z))), lz:Math.log2(v.s) + B.z};
+}
+function applyView(pg, V){
+  if(!V || !isFinite(V.lz)) return;
+  const B = baseOf(pg), X = hpDe(V.cx), Y = hpDe(V.cy);
+  let s = 2**(V.lz - B.z), lx = hpToFloat(hpSub(X, B.x), B.z), ly = hpToFloat(hpSub(Y, B.y), B.z);
+  if(!(s < 16 && s >= 1/16 && Math.abs(lx) < 2**20 && Math.abs(ly) < 2**20)){
+    if(drag || gesture) return;
+    if(editing) closeTextEditor();
+    const z = Math.round(V.lz);
+    rebasePage(pg, {x:X, y:Y, z});
+    s = 2**(V.lz - z); lx = 0; ly = 0;
+  }
+  pg.view.s = s; pg.view.x = W/2 - lx*s; pg.view.y = H/2 - ly*s;
+  sceneDirty = true; updateZoomLabel();
+}
+function toExact(pg, x, y){ const B = baseOf(pg); return [hpSer(hpAdd(B.x, hpFromFloat(x, B.z))), hpSer(hpAdd(B.y, hpFromFloat(y, B.z)))]; }
+function fromExact(pg, X, Y){ const B = baseOf(pg); return {x:hpToFloat(hpSub(hpDe(X), B.x), B.z), y:hpToFloat(hpSub(hpDe(Y), B.y), B.z)}; }
+
+/* ---- finding what changed here since the last look ---- */
+function knownFor(id){ let K = LV.known.get(id); if(!K){ K = {objs:new Map(), order:[]}; LV.known.set(id, K); } return K; }
+function markKnown(pg){
+  const K = knownFor(pgId(pg));
+  K.objs.clear();
+  for(const o of pg.objects){ if(!o._off && (!o._P || o._sig!==geoSig(o))) syncExact(o, baseOf(pg)); K.objs.set(o.id, {P:o._P, sc:scalarSig(o)}); }
+  K.order = pg.objects.map(o=>o.id);
+}
+function collectChanges(keys){
+  const out = {};
+  const ids = S.pages.map(pgId);
+  if(ids.join(',') !== LV.knownPages){ out.pages = ids; LV.knownPages = ids.join(','); for(const k of [...LV.known.keys()]) if(!ids.includes(k)) LV.known.delete(k); }
+  const ms = metaSig();
+  if(ms !== LV.knownMeta){ out.meta = metaNow(keys); LV.knownMeta = ms; }
+  const sel = new Set(S.selection);
+  if(drag && drag.o) sel.add(drag.o);
+  const held = editing && editing.existing ? editing.o.id : null;
+  const ops = [];
+  for(const pg of S.pages){
+    const pid = pgId(pg), K = knownFor(pid), ups = [], seen = new Set();
+    for(const o of pg.objects){
+      seen.add(o.id);
+      const k = K.objs.get(o.id);
+      if(k && k.P===o._P){
+        const loose = isLink(o) && (o.b1 || o.b2) && !sel.has(o);
+        if((loose || o._off || o._sig===geoSig(o)) && k.sc===scalarSig(o)) continue;
+      }
+      ups.push(wireObj(o, pg, keys));
+      K.objs.set(o.id, {P:o._P, sc:scalarSig(o)});
+    }
+    const dels = [];
+    for(const id of K.objs.keys()) if(!seen.has(id) && id!==held){ dels.push(id); }
+    for(const id of dels) K.objs.delete(id);
+    const cur = pg.objects.map(o=>o.id);
+    const exp = K.order.filter(id=>seen.has(id)), es = new Set(exp);
+    for(const id of cur) if(!es.has(id)) exp.push(id);
+    const ord = exp.join(',') !== cur.join(',') ? cur : null;
+    K.order = cur;
+    if(ups.length || dels.length || ord) ops.push({pg:pid, ups, dels, ord});
+  }
+  if(ops.length) out.ops = ops;
+  return (out.pages || out.meta || out.ops) ? out : null;
+}
+
+/* ---- taking in someone else's change ---- */
+function pageById(id){ return S.pages.find(p=>p.id===id); }
+function skipKey(key, m){
+  if(LV.role!=='guest') return false;
+  if(m.from===LV.me){ const p = LV.pending.get(key); if(p!=null && m.seq>=p) LV.pending.delete(key); return true; }
+  return LV.pending.has(key);
+}
+function busyIds(){
+  const b = new Set();
+  if(drag){ for(const o of S.selection) b.add(o.id); if(drag.o) b.add(drag.o.id); }
+  if(live) b.add(live.id);
+  if(editing && editing.existing) b.add(editing.o.id);
+  return b;
+}
+function applyPages(ids){
+  const cur = page(), map = new Map(S.pages.map(p=>[pgId(p), p]));
+  S.pages = ids.map(id=> map.get(id) || Object.assign(newPage(), {id}));
+  let i = S.pages.indexOf(cur);
+  if(i < 0){ closeTextEditor(); S.selection = []; i = Math.min(S.page, S.pages.length-1); }
+  S.page = i;
+  LV.knownPages = ids.join(',');
+  for(const k of [...LV.known.keys()]) if(!ids.includes(k)) LV.known.delete(k);
+  sceneDirty = true; syncPages(); syncHistoryButtons();
+}
+function applyOps(op, m){
+  const pg = pageById(op.pg); if(!pg) return;
+  const K = knownFor(op.pg), busy = busyIds();
+  const idx = new Map(pg.objects.map((o,i)=>[o.id, i]));
+  const swap = new Map();
+  let drop = false;
+  LV.everRemote = true;
+  for(const c of op.ups || []){
+    if(skipKey(op.pg + ':' + c.id, m)) continue;
+    if(pg===page() && busy.has(c.id)){ K.objs.delete(c.id); continue; }
+    const o = unwireObj(c, pg);
+    remoteObjs.add(o); remoteDeleted.delete(o.id);
+    const i = idx.get(o.id);
+    if(i!=null){ swap.set(pg.objects[i], o); pg.objects[i] = o; }
+    else { idx.set(o.id, pg.objects.length); pg.objects.push(o); }
+    K.objs.set(o.id, {P:o._P, sc:scalarSig(o)});
+    for(const p of LV.people.values()) if(p.lv && p.lv.c.id===o.id) p.lv = null;
+  }
+  for(const id of op.dels || []){
+    if(skipKey(op.pg + ':' + id, m)) continue;
+    if(pg===page() && busy.has(id)){ K.objs.delete(id); continue; }
+    const i = idx.get(id);
+    if(i!=null){ swap.set(pg.objects[i], null); pg.objects[i] = null; drop = true; }
+    remoteDeleted.add(id); K.objs.delete(id);
+  }
+  if(drop) pg.objects = pg.objects.filter(Boolean);
+  if(op.ord && !skipKey(op.pg + ':ord', m)){
+    const by = new Map(pg.objects.map(o=>[o.id, o])), out = [];
+    for(const id of op.ord){ const o = by.get(id); if(o){ out.push(o); by.delete(id); } }
+    for(const o of pg.objects) if(by.has(o.id)) out.push(o);
+    pg.objects = out;
+  }
+  K.order = pg.objects.filter(o=>K.objs.has(o.id)).map(o=>o.id);
+  if(swap.size && pg===page()){
+    S.selection = S.selection.map(o=> swap.has(o) ? swap.get(o) : o).filter(Boolean);
+  }
+  if(pg===page()) sceneDirty = true;
+}
+function applyMsg(m){
+  if(m.pages && !skipKey('pages', m)) applyPages(m.pages);
+  if(m.meta && !skipKey('meta', m)) applyMeta(m.meta);
+  for(const op of m.ops || []) applyOps(op, m);
+}
+
+/* ---- per-person undo: only your own changes come back ---- */
+function mergeSnapshot(cur, target){
+  if(!LV.everRemote) return target;
+  const T = new Map(target.map(o=>[o.id, o])), C = new Map(cur.map(o=>[o.id, o]));
+  const pick = id => {
+    const t = T.get(id), c = C.get(id);
+    if(t===c) return c;
+    if(c && remoteObjs.has(c)) return c;
+    if(!c && remoteDeleted.has(id)) return undefined;
+    return t;
+  };
+  const out = [], have = new Set();
+  for(const c of cur){ const v = pick(c.id); if(v){ out.push(v); have.add(v.id); } }
+  let prev = null;
+  for(const t of target){
+    if(!have.has(t.id)){
+      const v = pick(t.id);
+      if(v){ const i = prev ? out.findIndex(o=>o.id===prev) : -1; out.splice(i+1, 0, v); have.add(v.id); }
+    }
+    if(have.has(t.id)) prev = t.id;
+  }
+  return out;
+}
+
+/* ---- connections ---- */
+function loadPeerJS(){
+  if(window.Peer) return Promise.resolve();
+  if(LV.peerLoad) return LV.peerLoad;
+  LV.peerLoad = new Promise((res, rej)=>{
+    const s = document.createElement('script');
+    s.src = PEERJS_URL; s.async = true;
+    s.onload = ()=> res(); s.onerror = ()=>{ LV.peerLoad = null; s.remove(); rej(new Error('offline')); };
+    document.head.appendChild(s);
+  });
+  return LV.peerLoad;
+}
+const peerOpts = () => Object.assign({debug:0}, window.SB_PEER_OPTS || {});
+function makeLink(conn){ return {conn, id:conn.peer, parts:new Map(), assets:new Set(), ready:false, edit:false, name:'', color:''}; }
+function linkSend(L, msg){
+  if(!L.conn.open) return;
+  const s = JSON.stringify(msg);
+  try{
+    if(s.length <= LIVE_CHUNK){ L.conn.send(s); return; }
+    const id = randId(6), n = Math.ceil(s.length/LIVE_CHUNK);
+    for(let i=0;i<n;i++) L.conn.send(JSON.stringify({t:'~', id, i, n, d:s.slice(i*LIVE_CHUNK, (i+1)*LIVE_CHUNK)}));
+  }catch(e){}
+}
+function linkRecv(L, raw, handle){
+  let m; try{ m = typeof raw==='string' ? JSON.parse(raw) : raw; }catch(e){ return; }
+  if(!m || typeof m!=='object') return;
+  if(m.t==='~'){
+    let P = L.parts.get(m.id);
+    if(!P){ P = {n:m.n, got:0, a:new Array(m.n)}; L.parts.set(m.id, P); }
+    if(P.a[m.i]==null){ P.a[m.i] = m.d; P.got++; }
+    if(P.got===P.n){ L.parts.delete(m.id); linkRecv(L, P.a.join(''), handle); }
+    return;
+  }
+  try{ handle(L, m); }catch(e){ console.warn('live:', e); }
+}
+function sendAssets(L, keys){
+  for(const k of keys || []) if(!L.assets.has(k) && LV.assets.has(k)){ linkSend(L, {t:'asset', k, d:LV.assets.get(k)}); L.assets.add(k); }
+}
+function toGuests(msg, except){
+  for(const L of LV.links.values()) if(L.ready && L!==except){ sendAssets(L, msg.a); linkSend(L, msg); }
+}
+function peopleList(){ return [...LV.people.values()].map(p=>({id:p.id, name:p.name, color:p.color, edit:p.edit})); }
+function person(id){ let p = LV.people.get(id); if(!p){ p = {id, name:'Someone', color:'#aaa', edit:true, pr:null, trail:[], lv:null}; LV.people.set(id, p); } return p; }
+
+/* host */
+async function startHosting(){
+  LV.name = liveName($('lvName')?.value) || LV.name || 'Host';
+  lsSet('sb-name', LV.name);
+  LV.state = 'starting'; renderSharePop();
+  try{ await loadPeerJS(); }
+  catch(e){ LV.state = 'idle'; renderSharePop("Couldn't load the connection library. Check your internet connection."); return; }
+  LV.key = randId(8);
+  const peer = new window.Peer('screenboard-' + randId(12), peerOpts());
+  LV.peer = peer;
+  peer.on('open', id=>{
+    if(LV.peer!==peer) return;
+    if(LV.role==='host'){ return; }       // reconnected to the matchmaker
+    LV.role = 'host'; LV.state = 'live'; LV.me = id; LV.hostId = id; LV.edit = true; LV.color = LIVE_COLORS[0];
+    LV.people.clear(); LV.people.set(id, {id, name:LV.name, color:LV.color, edit:true, pr:null, trail:[], lv:null, me:true});
+    LV.known.clear(); LV.pending.clear();
+    for(const pg of S.pages){ pgId(pg); markKnown(pg); }
+    LV.knownPages = S.pages.map(pgId).join(','); LV.knownMeta = metaSig();
+    startTicking(); renderSharePop(); syncLiveChip();
+    toast('Live. Send the link to invite people.');
+  });
+  peer.on('connection', conn=>{
+    const L = makeLink(conn);
+    conn.on('open', ()=>{ LV.links.set(L.id, L); });
+    conn.on('data', d=> linkRecv(L, d, hostHandle));
+    conn.on('close', ()=> dropGuest(L));
+    conn.on('error', ()=> dropGuest(L));
+  });
+  peer.on('disconnected', ()=>{ if(LV.peer===peer && !peer.destroyed) setTimeout(()=>{ try{ peer.reconnect(); }catch(e){} }, 1000); });
+  peer.on('error', err=>{
+    if(LV.peer!==peer) return;
+    if(LV.state==='starting'){ stopLive(); openShare(); renderSharePop("Couldn't start the session. Check your connection and try again."); }
+    else if(err && err.type==='network') toast('Connection to the matchmaker dropped. People already here stay connected.');
+  });
+}
+function hostHandle(L, m){
+  if(m.t==='hello'){
+    if(L.ready) return;
+    L.ready = true; L.name = liveName(m.name) || 'Guest'; L.edit = !!LV.key && m.key===LV.key;
+    L.color = LIVE_COLORS[LV.colorN++ % LIVE_COLORS.length];
+    LV.people.set(L.id, {id:L.id, name:L.name, color:L.color, edit:L.edit, pr:null, trail:[], lv:null});
+    const keys = new Set();
+    const w = {t:'welcome', you:{id:L.id, color:L.color, edit:L.edit}, host:LV.name, people:peopleList(),
+      meta:metaNow(keys), cur:pgId(page()),
+      pages:S.pages.map(pg=>({id:pgId(pg), view:viewExact(pg), objs:pg.objects.map(o=>wireObj(o, pg, keys))}))};
+    for(const pg of S.pages) markKnown(pg);
+    sendAssets(L, keys);
+    linkSend(L, w);
+    toGuests({t:'people', people:peopleList()});
+    renderSharePop(); syncLiveChip();
+    toast(`${L.name} joined${L.edit ? '' : ' to watch'}`);
+    return;
+  }
+  if(!L.ready) return;
+  if(m.t==='asset'){ if(L.edit && typeof m.d==='string'){ gotAsset(m.k, m.d); L.assets.add(m.k); } return; }
+  if(m.t==='ops'){
+    if(!L.edit) return;
+    m.from = L.id;
+    applyMsg(m);
+    toGuests(m);
+    return;
+  }
+  if(m.t==='pr'){ m.id = L.id; takePresence(m); toGuests(m, L); return; }
+  if(m.t==='lv'){ if(!L.edit) return; m.id = L.id; takeLive(m); toGuests(m, L); return; }
+}
+function dropGuest(L){
+  if(!LV.links.has(L.id)) return;
+  LV.links.delete(L.id);
+  if(L.ready){
+    LV.people.delete(L.id);
+    if(LV.follow===L.id) stopFollow();
+    toGuests({t:'people', people:peopleList()});
+    toast(`${L.name} left`);
+    renderSharePop(); syncLiveChip();
+  }
+}
+
+/* guest */
+async function joinLive(hostId, key){
+  LV.name = liveName($('lvName')?.value) || LV.name || 'Guest';
+  lsSet('sb-name', LV.name);
+  LV.state = 'joining'; renderSharePop();
+  try{ await loadPeerJS(); }
+  catch(e){ LV.state = 'ask'; renderSharePop("Couldn't load the connection library. Check your internet connection."); return; }
+  const peer = new window.Peer('screenboard-g' + randId(12), peerOpts());
+  LV.peer = peer; LV.hostId = hostId;
+  const fail = msg => { if(LV.peer!==peer) return; stopLive(); LV.state = 'ask'; openShare(); renderSharePop(msg); };
+  const timer = setTimeout(()=> fail("Couldn't reach the host. The session may have ended, or a network is blocking it."), 20000);
+  peer.on('open', ()=>{
+    const conn = peer.connect(hostId, {reliable:true, serialization:'raw'});
+    const L = makeLink(conn);
+    conn.on('open', ()=>{ LV.links.set('host', L); linkSend(L, {t:'hello', name:LV.name, key}); });
+    conn.on('data', d=> linkRecv(L, d, (L2, m)=>{ if(m.t==='welcome') clearTimeout(timer); guestHandle(L2, m); }));
+    conn.on('close', ()=>{ if(LV.role==='guest' && LV.peer===peer) endedByHost('The live session ended. Your copy of the board stays here.'); });
+  });
+  peer.on('error', err=>{
+    if(err && err.type==='peer-unavailable'){ clearTimeout(timer); fail("That live board isn't open anymore. Ask the host for a new link."); }
+    else if(LV.state==='joining'){ clearTimeout(timer); fail("Couldn't connect. Check your internet connection and try again."); }
+  });
+}
+function guestHandle(L, m){
+  switch(m.t){
+    case 'welcome': return loadWelcome(m);
+    case 'people': {
+      const keep = LV.people; LV.people = new Map();
+      for(const p of m.people){ const o = keep.get(p.id) || {pr:null, trail:[], lv:null}; LV.people.set(p.id, Object.assign(o, p, {me:p.id===LV.me})); }
+      if(LV.follow && !LV.people.has(LV.follow)) stopFollow();
+      renderSharePop(); syncLiveChip(); return;
+    }
+    case 'ops': return applyMsg(m);
+    case 'asset': return gotAsset(m.k, m.d);
+    case 'pr': return takePresence(m);
+    case 'lv': return takeLive(m);
+    case 'summon': { const i = S.pages.findIndex(p=>p.id===m.pg); if(i>=0){ if(i!==S.page) gotoPage(i); applyView(page(), m.view); } toast(`${person(m.id).name} brought everyone to their view`); return; }
+    case 'end': return endedByHost('The host ended the live session. Your copy of the board stays here.');
+  }
+}
+function loadWelcome(m){
+  closeTextEditor(); closePops(); cancelActiveDrag();
+  LV.role = 'guest'; LV.state = 'live'; LV.me = m.you.id; LV.color = m.you.color; LV.edit = !!m.you.edit;
+  LV.everRemote = true;
+  LV.people.clear();
+  for(const p of m.people) LV.people.set(p.id, Object.assign({pr:null, trail:[], lv:null}, p, {me:p.id===LV.me}));
+  LV.known.clear(); LV.pending.clear(); LV.seq = 0;
+  S.pages = m.pages.map(p=>{
+    const pg = Object.assign(newPage(), {id:p.id});
+    const z = Math.round(p.view.lz);
+    pg.base = {x:hpDe(p.view.cx), y:hpDe(p.view.cy), z};
+    pg.view = {x:W/2, y:H/2, s:2**(p.view.lz - z)};
+    pg.objects = p.objs.map(c=>{ const o = unwireObj(c, pg); remoteObjs.add(o); return o; });
+    markKnown(pg);
+    return pg;
+  });
+  if(!S.pages.length) S.pages.push(newPage());
+  S.page = Math.max(0, S.pages.findIndex(p=>p.id===m.cur));
+  S.selection = [];
+  LV.knownPages = S.pages.map(pgId).join(',');
+  applyMeta(m.meta);
+  document.body.classList.toggle('viewonly', !LV.edit);
+  if(!LV.edit) setTool('laser');
+  sceneDirty = true; syncPages(); syncHistoryButtons(); updateZoomLabel();
+  startTicking(); renderSharePop(); syncLiveChip(); closePops();
+  toast(LV.edit ? `You're on ${m.host}'s board` : `Watching ${m.host}'s board`);
+  if(location.hash) history.replaceState(null, '', location.pathname + location.search);
+}
+function endedByHost(msg){
+  if(LV.role!=='guest') return;
+  stopLive();
+  toast(msg);
+  renderSharePop(msg);
+}
+
+/* both */
+function stopLive(){
+  const was = LV.role;
+  clearInterval(LV.timer); LV.timer = 0;
+  if(was==='host') for(const L of LV.links.values()) linkSend(L, {t:'end'});
+  const peer = LV.peer; LV.peer = null;
+  setTimeout(()=>{ try{ peer && peer.destroy(); }catch(e){} }, was==='host' ? 300 : 0);
+  LV.links.clear(); LV.people.clear(); LV.pending.clear(); LV.known.clear();
+  LV.role = null; LV.state = 'idle'; LV.follow = null; LV.hadLv = false;
+  document.body.classList.remove('viewonly');
+  syncLiveChip(); sceneDirty = true;
+}
+function startTicking(){ clearInterval(LV.timer); LV.timer = setInterval(liveTick, 50); }
+function liveTick(){
+  if(!LV.role) return;
+  const now = performance.now();
+  if(canEdit() && (LV.lastBuild!==sceneBuilds || now - LV.lastFull > 1000)){
+    LV.lastBuild = sceneBuilds; LV.lastFull = now;
+    const keys = new Set(), ch = collectChanges(keys);
+    if(ch){
+      const msg = Object.assign({t:'ops'}, ch);
+      if(keys.size) msg.a = [...keys];
+      if(LV.role==='host'){ msg.from = LV.me; toGuests(msg); }
+      else {
+        msg.seq = ++LV.seq;
+        if(ch.pages) LV.pending.set('pages', msg.seq);
+        if(ch.meta) LV.pending.set('meta', msg.seq);
+        for(const op of ch.ops || []){
+          for(const c of op.ups) LV.pending.set(op.pg + ':' + c.id, msg.seq);
+          for(const id of op.dels) LV.pending.set(op.pg + ':' + id, msg.seq);
+          if(op.ord) LV.pending.set(op.pg + ':ord', msg.seq);
+        }
+        const L = LV.links.get('host'); if(L){ sendAssets(L, msg.a); linkSend(L, msg); }
+      }
+    }
+  }
+  // what I'm drawing right now
+  if(canEdit()){
+    if(live && now - LV.lastLv > 70){
+      LV.lastLv = now; LV.hadLv = true;
+      const keys = new Set();
+      sendOut({t:'lv', id:LV.me, pg:pgId(page()), o:wireObj(live, page(), keys), a:[...keys]});
+    } else if(!live && LV.hadLv){ LV.hadLv = false; sendOut({t:'lv', id:LV.me, pg:pgId(page()), o:null}); }
+  }
+  // where my pointer is
+  const pg = page(), lz = drag && drag.mode==='laser';
+  const at = LV.ptr ? S2W(LV.ptr.x, LV.ptr.y) : null;
+  const v = pg.view, sig = `${pgId(pg)}|${at ? Math.round(LV.ptr.x)+','+Math.round(LV.ptr.y) : '-'}|${v.x.toFixed(1)},${v.y.toFixed(1)},${v.s}|${baseOf(pg).z}|${lz}`;
+  if(sig!==LV.prSig || now - LV.lastPr > 1500){
+    LV.prSig = sig; LV.lastPr = now;
+    const xy = at ? toExact(pg, at.x, at.y) : null;
+    sendOut({t:'pr', id:LV.me, pg:pgId(pg), x:xy && xy[0], y:xy && xy[1], laser:!!lz, view:viewExact(pg)});
+  }
+}
+function sendOut(msg){
+  if(LV.role==='host') toGuests(msg);
+  else { const L = LV.links.get('host'); if(L){ sendAssets(L, msg.a); linkSend(L, msg); } }
+}
+function takePresence(m){
+  const p = LV.people.get(m.id); if(!p) return;
+  p.pr = {pg:m.pg, x:m.x, y:m.y, view:m.view, t:performance.now()};
+  if(m.laser && m.x){ p.trail.push({pg:m.pg, x:m.x, y:m.y, t:performance.now()}); if(p.trail.length > 80) p.trail.shift(); }
+  if(LV.follow===m.id && m.view){
+    const i = S.pages.findIndex(q=>q.id===m.pg);
+    if(i>=0 && !drag && !gesture){ if(i!==S.page) gotoPage(i); applyView(page(), m.view); }
+  }
+}
+function takeLive(m){
+  const p = LV.people.get(m.id); if(!p) return;
+  p.lv = m.o ? {pg:m.pg, c:m.o, o:null, B:null} : null;
+}
+
+/* ---- follow and summon ---- */
+function followPerson(id){ LV.follow = id; const p = LV.people.get(id); if(p && p.pr) takePresence(Object.assign({id, laser:false}, p.pr, {x:null})); renderSharePop(); syncLiveChip(); toast(`Following ${p ? p.name : ''}. Click the board to stop.`); }
+function stopFollow(){ if(!LV.follow) return; LV.follow = null; renderSharePop(); syncLiveChip(); }
+function summonAll(){
+  sendOut({t:'summon', id:LV.me, pg:pgId(page()), view:viewExact(page())});
+  toast('Everyone is now looking where you are');
+}
+cv.addEventListener('pointerdown', ()=> stopFollow(), true);
+cv.addEventListener('wheel', ()=> stopFollow(), {capture:true, passive:true});
+cv.addEventListener('pointermove', e=>{ LV.ptr = {x:e.clientX, y:e.clientY}; }, {passive:true});
+cv.addEventListener('pointerleave', e=>{ if(e.pointerType!=='touch' && !drag) LV.ptr = null; });
+cv.addEventListener('pointerup', e=>{ if(e.pointerType==='touch') LV.ptr = null; });
+
+/* ---- other people on screen ---- */
+function drawPeople(c){
+  if(!LV.role) return;
+  const pg = page(), pid = pgId(pg), v = pg.view, now = performance.now();
+  for(const p of LV.people.values()){
+    if(p.me) continue;
+    // their stroke in progress
+    if(p.lv && p.lv.pg===pid){
+      const B = baseOf(pg);
+      if(p.lv.B!==B){ try{ p.lv.o = unwireObj(p.lv.c, pg); }catch(e){ p.lv.o = null; } p.lv.B = B; }
+      if(p.lv.o && !p.lv.o._off){
+        c.save();
+        renderObjects(c, [p.lv.o], [dpr*v.s,0,0,dpr*v.s,dpr*v.x,dpr*v.y], {x0:0, y0:0, x1:cv.width, y1:cv.height});
+        c.restore(); c.setTransform(dpr,0,0,dpr,0,0);
+      }
+    }
+    // laser trail
+    p.trail = p.trail.filter(q=> now - q.t < 1100);
+    const tr = p.trail.filter(q=>q.pg===pid);
+    if(tr.length > 1){
+      c.save(); c.lineCap = 'round'; c.lineJoin = 'round';
+      const pts = tr.map(q=>{ const w = fromExact(pg, q.x, q.y); return W2S(w.x, w.y); });
+      for(let i=1;i<pts.length;i++){
+        const life = 1 - (now - tr[i].t)/1100; if(life <= 0) continue;
+        c.globalAlpha = life*.85; c.strokeStyle = '#ff3b30'; c.shadowColor = '#ff5146'; c.shadowBlur = 14;
+        c.lineWidth = 4*life + 1.5;
+        c.beginPath(); c.moveTo(pts[i-1].x, pts[i-1].y); c.lineTo(pts[i].x, pts[i].y); c.stroke();
+      }
+      c.restore();
+    }
+    // cursor
+    const pr = p.pr;
+    if(!pr || pr.pg!==pid || !pr.x || now - pr.t > 12000){ p.sx = null; continue; }
+    const w = fromExact(pg, pr.x, pr.y), s = W2S(w.x, w.y);
+    if(!isFinite(s.x) || !isFinite(s.y)) continue;
+    if(p.sx==null || Math.hypot(s.x-p.sx, s.y-p.sy) > 400){ p.sx = s.x; p.sy = s.y; }
+    else { p.sx += (s.x - p.sx)*.45; p.sy += (s.y - p.sy)*.45; }
+    const x = p.sx, y = p.sy;
+    c.save();
+    c.translate(x, y);
+    c.fillStyle = p.color; c.strokeStyle = 'rgba(0,0,0,.55)'; c.lineWidth = 1.2; c.lineJoin = 'round';
+    c.beginPath(); c.moveTo(0,0); c.lineTo(0,15); c.lineTo(4,11.5); c.lineTo(7,18); c.lineTo(9.6,16.8); c.lineTo(6.8,10.6); c.lineTo(11.6,10.6); c.closePath();
+    c.fill(); c.stroke();
+    c.font = '600 11.5px "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif';
+    const tw = c.measureText(p.name).width;
+    c.fillStyle = p.color;
+    c.beginPath(); c.roundRect ? c.roundRect(12, 17, tw + 12, 19, 6) : c.rect(12, 17, tw + 12, 19); c.fill();
+    c.fillStyle = lum(p.color) > .45 ? '#15171a' : '#fff';
+    c.fillText(p.name, 18, 30.5);
+    c.restore();
+  }
+}
+
+/* ---- share button + popover ---- */
+function inviteLinks(){
+  const base = location.origin + location.pathname;
+  return {edit:`${base}#live=${LV.hostId}.${LV.key}`, view:`${base}#live=${LV.hostId}`};
+}
+function syncLiveChip(){
+  const b = $('shareBtn'); if(!b) return;
+  const n = LV.people.size, on = LV.role && LV.state==='live';
+  b.classList.toggle('live', !!on);
+  $('shareLbl').textContent = on ? (LV.follow ? 'Following' : n > 1 ? `Live · ${n}` : 'Live') : 'Share';
+  b.setAttribute('data-tip', on ? 'Live session' : 'Share live');
+}
+function copyText(t, btn){
+  const done = ()=>{ if(btn){ const o = btn.textContent; btn.textContent = 'Copied'; setTimeout(()=> btn.textContent = o, 1200); } };
+  if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(done, ()=>fallback());
+  else fallback();
+  function fallback(){ const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); done(); }catch(e){} ta.remove(); }
+}
+function peopleHtml(){
+  const rows = [...LV.people.values()].map(p=>{
+    const tag = p.me ? '<em>you</em>' : p.id===LV.hostId ? '<em>host</em>' : !p.edit ? '<em>watching</em>' : '';
+    const act = p.me ? '' : `<button class="tg${LV.follow===p.id ? ' on' : ''}" data-follow="${escHtml(p.id)}">${LV.follow===p.id ? 'Following' : 'Follow'}</button>`;
+    return `<div class="lv-row"><i style="background:${p.color}"></i><span>${escHtml(p.name)}</span>${tag}${act}</div>`;
+  }).join('');
+  return `<div class="lv-h">People here</div><div class="lv-people">${rows}</div>`;
+}
+function renderSharePop(note){
+  const el = $('sharePop'); if(!el) return;
+  const msg = note ? `<p class="lv-msg">${escHtml(note)}</p>` : '';
+  const nameFld = `<label class="fld"><span>Your name</span><input id="lvName" maxlength="24" autocomplete="nickname" value="${escHtml(LV.name || lsGet('sb-name'))}" placeholder="Name shown to others"></label>`;
+  let h = '';
+  if(LV.state==='starting' || LV.state==='joining'){
+    h = `<div class="lv-title">${LV.state==='starting' ? 'Starting the session…' : 'Joining…'}</div><p class="lv-note">This takes a few seconds.</p>
+      <div class="lv-act"><button class="btn" id="lvCancel">Cancel</button></div>`;
+  } else if(LV.state==='ask'){
+    h = `<div class="lv-title">Join a live board</div>${msg}
+      <p class="lv-note">${LV.invite && LV.invite.key ? 'You can draw along with everyone.' : 'This link lets you watch and point, but not draw.'} Joining replaces what's on your screen with the shared board.</p>
+      ${nameFld}<div class="lv-act"><button class="btn" id="lvCancel">Not now</button><button class="btn primary" id="lvJoin">Join</button></div>`;
+  } else if(LV.role==='host'){
+    const L = inviteLinks();
+    h = `<div class="lv-title"><i class="lv-dot"></i>You're live</div>
+      <p class="lv-note">Anyone with a link can join until you end the session or close this board.</p>
+      <div class="lv-link"><div><b>Can draw</b><span>${escHtml(L.edit)}</span></div><button class="tg" data-copy="edit">Copy</button></div>
+      <div class="lv-link"><div><b>View only</b><span>${escHtml(L.view)}</span></div><button class="tg" data-copy="view">Copy</button></div>
+      ${peopleHtml()}
+      <div class="lv-act"><button class="btn" id="lvSummon"${LV.people.size < 2 ? ' disabled' : ''}>Bring everyone here</button><button class="btn danger" id="lvEnd">End session</button></div>`;
+  } else if(LV.role==='guest'){
+    const host = LV.people.get(LV.hostId);
+    h = `<div class="lv-title"><i class="lv-dot"></i>${escHtml(host ? host.name : 'Host')}'s board</div>
+      <p class="lv-note">${LV.edit ? 'Everything you draw shows up for everyone. Undo only takes back your own changes.' : "You're watching. Use the laser pointer to point things out."}</p>
+      ${peopleHtml()}
+      <div class="lv-act">${LV.edit ? '<button class="btn" id="lvSummon">Bring everyone here</button>' : ''}<button class="btn" id="lvLeave">Leave</button></div>`;
+  } else {
+    h = `<div class="lv-title">Draw together, live</div>${msg}
+      <p class="lv-note">Start a session and send the link. People join straight from their browser, with nothing to install, for as long as this board stays open.</p>
+      ${nameFld}<div class="lv-act"><button class="btn primary" id="lvStart">Start live session</button></div>`;
+  }
+  el.innerHTML = h;
+  const on = (id, f)=>{ const b = $(id); if(b) b.onclick = f; };
+  on('lvStart', startHosting);
+  on('lvJoin', ()=> LV.invite && joinLive(LV.invite.host, LV.invite.key));
+  on('lvCancel', ()=>{ const was = LV.state; stopLive(); if(was==='joining'){ LV.state = 'ask'; } else { LV.invite = null; if(location.hash.startsWith('#live=')) history.replaceState(null, '', location.pathname + location.search); } renderSharePop(); if(was!=='joining') closePops(); });
+  on('lvEnd', ()=>{ stopLive(); renderSharePop(); toast('Session ended'); });
+  on('lvLeave', ()=>{ stopLive(); renderSharePop(); closePops(); toast('You left. Your copy of the board stays here.'); });
+  on('lvSummon', ()=>{ summonAll(); closePops(); });
+  el.querySelectorAll('[data-copy]').forEach(b=> b.onclick = ()=> copyText(inviteLinks()[b.dataset.copy], b));
+  el.querySelectorAll('[data-follow]').forEach(b=> b.onclick = ()=>{ const id = b.dataset.follow; LV.follow===id ? stopFollow() : followPerson(id); });
+  const nm = $('lvName');
+  if(nm) nm.addEventListener('keydown', e=>{ e.stopPropagation(); if(e.key==='Enter'){ ($('lvJoin') || $('lvStart'))?.click(); } });
+}
+function openShare(){
+  const el = $('sharePop');
+  renderSharePop();
+  if(!(openPop && openPop.el===el)) openPopAt(el, $('shareBtn'), 'below');
+}
+$('shareBtn').addEventListener('click', ()=>{
+  const el = $('sharePop');
+  if(openPop && openPop.el===el){ closePops(); return; }
+  if(LV.state==='idle' && !LV.invite) renderSharePop();
+  openShare();
+});
+function checkInvite(){
+  const m = /^#live=([a-z0-9-]+)(?:\.([a-z0-9]+))?$/i.exec(location.hash);
+  if(!m) return;
+  if(LV.role) return;
+  LV.invite = {host:m[1], key:m[2] || ''};
+  LV.state = 'ask';
+  LV.name = lsGet('sb-name');
+  openShare();
+  setTimeout(()=> $('lvName')?.focus(), 50);
+}
+window.addEventListener('hashchange', checkInvite);
+window.addEventListener('pagehide', ()=>{ if(LV.role==='host') for(const L of LV.links.values()) linkSend(L, {t:'end'}); });
+setTimeout(checkInvite, 0);
+
 window.addEventListener('beforeunload', e=>{
-  const any = S.pages.some(p=>p.objects.length) || (REC && REC.rec);
+  const any = S.pages.some(p=>p.objects.length) || (REC && REC.rec) || LV.role==='host';
   if(any){ e.preventDefault(); e.returnValue=''; }
 });
 </script>
