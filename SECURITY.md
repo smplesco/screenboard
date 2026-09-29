@@ -67,9 +67,14 @@ Things I especially want to hear about:
 - **Direct connections.** Browsers connect to each other with WebRTC, which
   encrypts traffic between them. A free public matchmaking service
   ([PeerJS](https://peerjs.com)) introduces the browsers, and, on strict
-  networks, may relay the already-encrypted traffic. That service can see
-  connection details such as IP addresses and the random session ID, but not
-  what's drawn.
+  networks, may relay the already-encrypted traffic. A public Google server
+  (stun.l.google.com) helps each browser find a direct route. These services
+  can see connection details such as IP addresses and the random session ID,
+  but not what's drawn.
+- **Network check.** "Check my network" in the Share panel and Settings runs the
+  same steps as a real session (loading the connection code, reaching the
+  matchmaking server, and trying the direct and relayed routes) without sharing
+  anything, and shows which of them your network blocks.
 - **Nothing is stored online.** When a session ends, each person keeps their
   own copy of the board on their device. Nothing is kept on a server.
 
