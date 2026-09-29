@@ -391,10 +391,22 @@
   #restore .tg{height:28px;white-space:nowrap}
   #restore .tg.primary{background:#e9ecf1;color:#111316;box-shadow:none;font-weight:600}
   @media (max-width:760px){ #restore{top:auto;bottom:128px} }
+
+  /* ---- split screen ---- */
+  #splitBar{position:fixed;z-index:4;cursor:col-resize;touch-action:none;background:transparent}
+  #splitBar.v{cursor:row-resize}
+  #splitBar::before{content:'';position:absolute;inset:0 -6px}
+  #splitBar.v::before{inset:-6px 0}
+  #splitBar::after{content:'';position:absolute;left:50%;top:50%;width:4px;height:44px;margin:-22px 0 0 -2px;border-radius:4px;
+    background:rgba(255,255,255,.28);transition:background .12s ease}
+  #splitBar.v::after{width:44px;height:4px;margin:-2px 0 0 -22px}
+  #splitBar:hover::after,#splitBar.drag::after{background:rgba(255,255,255,.6)}
+  #splitBtn.on{background:var(--active);color:var(--fg)}
 </style>
 </head>
 <body>
 <canvas id="board"></canvas>
+<div id="splitBar" hidden title="Drag to resize. Double-click to even out."></div>
 
 <div id="topright" class="chrome surface">
   <button class="b" id="undo" data-tip="Undo"><svg viewBox="0 0 24 24"><path d="M4 9h11a5 5 0 0 1 0 10h-6"/><path d="M8 5 4 9l4 4"/></svg></button>
@@ -402,6 +414,7 @@
   <i class="div"></i>
   <button class="chip sharechip" id="shareBtn" data-tip="Share live"><svg viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.6-3.3 2.8-5 5.5-5s4.9 1.7 5.5 5"/><circle cx="17" cy="9.5" r="2.4"/><path d="M16.2 14.1c2.6-.3 4.2 1.3 4.6 4.1"/></svg><span id="shareLbl">Share</span></button>
   <i class="div"></i>
+  <button class="b" id="splitBtn" data-tip="Split screen (\)"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M12 4.5v15"/></svg></button>
   <button class="b" id="hideBtn" data-tip="Hide the controls (Tab)"><svg viewBox="0 0 24 24"><path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z"/><circle cx="12" cy="12" r="2.4"/></svg></button>
   <button class="chip menuchip" id="menuBtn" data-tip="Menu"><svg viewBox="0 0 24 24"><path d="M4 8h9M17.5 8H20M4 16h2.5M11 16h9"/><circle cx="15" cy="8" r="2.4"/><circle cx="8.5" cy="16" r="2.4"/></svg><span>Menu</span></button>
 </div>
@@ -507,6 +520,7 @@
   <button class="mi" id="imgBtn"><span>Add a photo</span><em>Ctrl V</em></button>
   <button class="mi" id="themeBtn"><span>Surface</span><em id="themeVal">Chalkboard</em></button>
   <button class="mi" id="gridBtn"><span>Guides</span><em id="gridVal">Off</em></button>
+  <button class="mi" id="splitMi"><span>Split screen</span><em id="splitVal">Off</em></button>
   <button class="mi" id="snapBtn"><span>Shape snapping</span><em id="snapVal">On</em></button>
   <div class="mi" id="pagesSlot"><span>Boards</span></div>
   <i class="msep"></i>
@@ -573,6 +587,7 @@
       <div class="row"><span>Switch boards</span><em>PgUp, PgDn</em></div>
       <div class="row"><span>Surface, guides</span><em>Shift B, Shift G</em></div>
       <div class="row"><span>Save, open, PNG</span><em>Ctrl S, O, E</em></div>
+      <div class="row"><span>Split screen</span><em>\</em></div>
       <div class="row"><span>Export as SVG</span><em>Ctrl Shift E</em></div>
       <div class="row"><span>Record video</span><em>Shift R</em></div>
       <h3>Touch</h3>
@@ -666,7 +681,276 @@ const DEFAULT_SIZE = {pen:5, marker:14, chalk:9, highlighter:26, neon:6, brush:1
 const cv = $('board'), ctx = cv.getContext('2d');
 const sceneCv = document.createElement('canvas'), sctx = sceneCv.getContext('2d');
 const liveCv  = document.createElement('canvas'), lctx  = liveCv.getContext('2d');
-let dpr = 1, W = 0, H = 0;
+let dpr = 1, W = 0, H = 0, VX0 = 0, VY0 = 0, VW = 0, VH = 0;   // VX0.. = where the active pane sits
+
+/* ================= split screen =================
+   Two panes, each with its own board and camera. Everything else in the app
+   works on "the active pane": its board is S.page, its camera is page().view,
+   and VX0/VY0/VW/VH say where it sits on screen. Cameras are kept in window
+   coordinates, so pointer maths needs no changes; a click in the other pane
+   simply makes that pane active first. The same board can be on both sides. */
+const SPLIT = {on:false, active:0, ratio:.5, panes:null, pt:null};
+const SPLIT_GAP = 6;
+const FULL = () => ({x:0, y:0, w:W, h:H});
+const splitDir = () => W >= H*0.9 ? 'h' : 'v';
+function paneRect(i){
+  if(!SPLIT.on) return FULL();
+  const g = SPLIT_GAP;
+  if(splitDir()==='h'){
+    const a = Math.round(W*SPLIT.ratio - g/2);
+    return i===0 ? {x:0, y:0, w:a, h:H} : {x:a+g, y:0, w:W-a-g, h:H};
+  }
+  const a = Math.round(H*SPLIT.ratio - g/2);
+  return i===0 ? {x:0, y:0, w:W, h:a} : {x:0, y:a+g, w:W, h:H-a-g};
+}
+function setViewRect(){
+  const r = SPLIT.on ? SPLIT.panes[SPLIT.active].rect : FULL();
+  VX0 = r.x; VY0 = r.y; VW = r.w; VH = r.h;
+}
+function shiftView(v, from, to){
+  v.x += (to.x + to.w/2) - (from.x + from.w/2);
+  v.y += (to.y + to.h/2) - (from.y + from.h/2);
+  return v;
+}
+/* the screen area a board is shown in right now */
+function rectFor(pg){
+  if(!SPLIT.on) return FULL();
+  const A = SPLIT.panes[SPLIT.active];
+  if(A.pg===pg) return A.rect;
+  const O = SPLIT.panes[1-SPLIT.active];
+  return O.pg===pg ? O.rect : FULL();
+}
+function paneAt(x, y){
+  if(!SPLIT.on) return 0;
+  const r = SPLIT.panes[1].rect;
+  return splitDir()==='h' ? (x >= r.x - SPLIT_GAP/2 ? 1 : 0) : (y >= r.y - SPLIT_GAP/2 ? 1 : 0);
+}
+function relayout(){
+  if(!SPLIT.on){ setViewRect(); return; }
+  SPLIT.panes.forEach((P, i)=>{ const r = paneRect(i); shiftView(P.view, P.rect, r); P.rect = r; });
+  setViewRect();
+  placeSplitBar();
+  sceneDirty = true;
+}
+/* run fn as if pane i were the active one (for drawing) */
+function withPane(i, fn){
+  const P = SPLIT.panes[i], sp = S.page, pv = P.pg.view, r = [VX0, VY0, VW, VH];
+  S.page = S.pages.indexOf(P.pg); P.pg.view = P.view;
+  VX0 = P.rect.x; VY0 = P.rect.y; VW = P.rect.w; VH = P.rect.h;
+  try{ return fn(); }
+  finally { S.page = sp; P.pg.view = pv; [VX0, VY0, VW, VH] = r; }
+}
+function activatePane(i){
+  if(!SPLIT.on || i===SPLIT.active) return;
+  closeTextEditor(); closePops();
+  const A = SPLIT.panes[SPLIT.active];
+  A.sel = S.selection;
+  SPLIT.active = i;
+  const P = SPLIT.panes[i];
+  S.page = S.pages.indexOf(P.pg);
+  P.pg.view = P.view;
+  S.selection = P.sel.filter(o=>P.pg.objects.includes(o));
+  laser = [];
+  setViewRect();
+  sceneDirty = true; syncPages(); syncHistoryButtons(); updateZoomLabel();
+}
+/* a pane moves to another board */
+function paneShows(P, pg){
+  const O = SPLIT.panes[0]===P ? SPLIT.panes[1] : SPLIT.panes[0];
+  const old = P.pg;
+  if(old && S.pages.includes(old) && old!==pg){
+    if(O.pg===old) old.view = O.view;
+    else { shiftView(P.view, P.rect, FULL()); old.view = P.view; }
+  }
+  if(O.pg===pg) P.view = shiftView(Object.assign({}, O.view), O.rect, P.rect);
+  else P.view = shiftView(pg.view, FULL(), P.rect);
+  P.pg = pg; P.sel = [];
+  pg.view = P.view;
+}
+/* keep the panes pointing at real boards when boards are added, removed or swapped */
+function syncPanes(){
+  if(!SPLIT.on) return;
+  const A = SPLIT.panes[SPLIT.active], O = SPLIT.panes[1-SPLIT.active];
+  if(!S.pages.includes(O.pg)){
+    const same = S.pages.find(p=>p.id===O.pg.id);
+    if(same){ O.pg = same; }
+    else { const i = Math.min(S.pages.length-1, Math.max(0, O.idx||0)); O.pg = null; paneShows(O, S.pages[i]); if(O.pg===page()) O.pg.view = A.view; }
+    sceneDirty = true;
+  }
+  if(A.pg!==page()){
+    const same = A.pg && S.pages.find(p=>p.id===A.pg.id);
+    if(same===page()){ A.pg = page(); A.view = page().view; }
+    else paneShows(A, page());
+    sceneDirty = true;
+  }
+  A.pg.view = A.view;
+  A.idx = S.page; O.idx = S.pages.indexOf(O.pg);
+}
+function setSplit(on){
+  on = !!on;
+  if(on===SPLIT.on) return;
+  closeTextEditor(); closePops(); cancelActiveDrag();
+  const full = FULL();
+  if(on){
+    const a = page(), bi = S.pages.length > 1 ? (S.page+1) % S.pages.length : S.page, b = S.pages[bi];
+    const P0 = {pg:a, view:a.view, sel:S.selection, rect:full};
+    const P1 = {pg:b, view:b===a ? Object.assign({}, a.view) : b.view, sel:[], rect:full};
+    SPLIT.on = true; SPLIT.active = 0; SPLIT.panes = [P0, P1];
+    relayout();
+    toast(b===a ? 'Split screen: two views of this board. Click a side to work in it.' : 'Split screen: click a side to work in it, then pick its board below.');
+  } else {
+    const A = SPLIT.panes[SPLIT.active], O = SPLIT.panes[1-SPLIT.active];
+    if(O.pg!==A.pg){ shiftView(O.view, O.rect, full); O.pg.view = O.view; }
+    shiftView(A.view, A.rect, full); A.pg.view = A.view;
+    S.selection = S.selection.filter(o=>A.pg.objects.includes(o));
+    SPLIT.on = false; SPLIT.panes = null;
+    setViewRect();
+  }
+  syncSplitUI(); sceneDirty = true; updateZoomLabel(); syncPages();
+}
+function toggleSplit(){ setSplit(!SPLIT.on); }
+
+/* ---- drawing ---- */
+function paneScene(){
+  sctx.save();
+  sctx.setTransform(1,0,0,1,0,0);
+  sctx.beginPath(); sctx.rect(VX0*dpr, VY0*dpr, VW*dpr, VH*dpr); sctx.clip();
+  paintBackground(sctx);
+  const v = view();
+  renderObjects(sctx, page().objects, [dpr*v.s,0,0,dpr*v.s,dpr*v.x,dpr*v.y], {x0:VX0*dpr, y0:VY0*dpr, x1:(VX0+VW)*dpr, y1:(VY0+VH)*dpr});
+  sctx.restore();
+  sctx.setTransform(1,0,0,1,0,0);
+}
+function splitSceneKey(){
+  return SPLIT.panes.map(P=>[P.view.x|0, P.view.y|0, P.view.s.toFixed(4), P.rect.x, P.rect.y, P.rect.w, P.rect.h, S.pages.indexOf(P.pg), P.pg.objects.length].join(',')).join('/') + '|' + SPLIT.active;
+}
+function clipTo(c, r){ c.save(); c.setTransform(1,0,0,1,0,0); c.beginPath(); c.rect(r.x*dpr, r.y*dpr, r.w*dpr, r.h*dpr); c.clip(); }
+function drawSplitChrome(c){
+  const th = THEMES[S.theme];
+  c.save(); c.setTransform(dpr,0,0,dpr,0,0);
+  SPLIT.panes.forEach((P, i)=>{
+    const r = P.rect, act = i===SPLIT.active;
+    if(act){
+      c.strokeStyle = th.dark ? 'rgba(255,255,255,.28)' : 'rgba(20,24,30,.28)'; c.lineWidth = 1.5;
+      c.strokeRect(r.x + .75, r.y + .75, r.w - 1.5, r.h - 1.5);
+    }
+    const idx = S.pages.indexOf(P.pg), name = boardName(P.pg, idx);
+    const label = SPLIT.panes[0].pg===SPLIT.panes[1].pg ? `${name} · view ${i+1}` : name;
+    c.font = '500 12px "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif';
+    const tw = c.measureText(label).width, x = r.x + 14, y = r.y + 14;
+    c.globalAlpha = act ? 1 : .7;
+    c.fillStyle = th.dark ? 'rgba(12,13,15,.72)' : 'rgba(255,255,255,.82)';
+    c.beginPath(); c.roundRect ? c.roundRect(x, y, tw + 18, 24, 7) : c.rect(x, y, tw + 18, 24); c.fill();
+    c.fillStyle = th.dark ? (act ? '#f1f3f5' : '#aab0b8') : (act ? '#15171a' : '#5b616b');
+    c.fillText(label, x + 9, y + 16);
+    c.globalAlpha = 1;
+  });
+  // carrying things over to the other side
+  if(drag && drag.mode==='move' && drag.moved && SPLIT.pt && paneAt(SPLIT.pt.x, SPLIT.pt.y)!==SPLIT.active){
+    const T = SPLIT.panes[1-SPLIT.active].rect, v = view();
+    c.strokeStyle = '#4dabf7'; c.lineWidth = 2; c.setLineDash([6,4]);
+    c.strokeRect(T.x + 3, T.y + 3, T.w - 6, T.h - 6); c.setLineDash([]);
+    renderObjects(c, drag.list, [dpr*v.s,0,0,dpr*v.s,dpr*v.x,dpr*v.y], {x0:0, y0:0, x1:cv.width, y1:cv.height});
+    c.setTransform(dpr,0,0,dpr,0,0);
+    const O = SPLIT.panes[1-SPLIT.active], msg = `Drop to move to ${boardName(O.pg, S.pages.indexOf(O.pg))}`;
+    c.font = '600 12px "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif';
+    const tw = c.measureText(msg).width;
+    c.fillStyle = '#4dabf7'; c.beginPath(); c.roundRect ? c.roundRect(SPLIT.pt.x + 14, SPLIT.pt.y + 16, tw + 16, 24, 7) : c.rect(SPLIT.pt.x + 14, SPLIT.pt.y + 16, tw + 16, 24); c.fill();
+    c.fillStyle = '#0b1a26'; c.fillText(msg, SPLIT.pt.x + 22, SPLIT.pt.y + 32);
+  }
+  c.restore();
+}
+
+/* ---- moving a selection to the other side ---- */
+function moveToPane(list, t){
+  if(!SPLIT.on || t.pane===SPLIT.active) return;
+  const Apg = page(), moved = new Set(list.map(o=>o.id));
+  const live = list.filter(o=>Apg.objects.includes(o));
+  if(!live.length) return;
+  const wa = S2W(t.x, t.y), sa = view().s;
+  const {wb, sb} = withPane(t.pane, ()=>({wb:S2W(t.x, t.y), sb:view().s}));
+  const k = sa/sb, f = (x, y) => ({x:(x - wa.x)*k + wb.x, y:(y - wa.y)*k + wb.y});
+  const copies = live.map(o=>{
+    const c = cloneObj(o);
+    delete c._P; delete c._sig; delete c._bb; delete c._off; delete c.by;
+    if(c.points){ c.points = c.points.map(p=>{ const q = f(p.x, p.y); return {x:q.x, y:q.y, p:p.p}; }); }
+    else { const q = f(c.x, c.y); c.x = q.x; c.y = q.y; if(c.w!=null) c.w *= k; if(c.h!=null) c.h *= k; }
+    if(c.size!=null) c.size *= k;
+    for(const e of ['b1','b2']) if(c[e] && !moved.has(c[e].id)) delete c[e];
+    return c;
+  });
+  // what stays behind lets go of what left
+  Apg.objects = Apg.objects.filter(o=>!moved.has(o.id)).map(o=>{
+    if(isLink(o) && ((o.b1 && moved.has(o.b1.id)) || (o.b2 && moved.has(o.b2.id)))){
+      const c = cloneObj(o); if(c.b1 && moved.has(c.b1.id)) delete c.b1; if(c.b2 && moved.has(c.b2.id)) delete c.b2; return c;
+    }
+    return o;
+  });
+  S.selection = [];
+  const aSnap = Apg.undo[Apg.undo.length-1];
+  activatePane(t.pane);
+  pushUndo();
+  const bSnap = page().undo[page().undo.length-1];
+  if(aSnap){ aSnap.also = page(); bSnap.also = Apg; }
+  page().objects.push(...copies);
+  S.selection = copies;
+  sceneDirty = true; syncHistoryButtons();
+  toast(`Moved ${copies.length===1 ? '1 thing' : copies.length + ' things'} to ${boardName(page(), S.page)}`);
+}
+
+/* ---- divider, button, input ---- */
+function placeSplitBar(){
+  const bar = $('splitBar'); if(!bar) return;
+  bar.hidden = !SPLIT.on;
+  if(!SPLIT.on) return;
+  const r = SPLIT.panes[1].rect, h = splitDir()==='h';
+  bar.classList.toggle('v', !h);
+  Object.assign(bar.style, h ? {left:(r.x - SPLIT_GAP)+'px', top:'0px', width:SPLIT_GAP+'px', height:H+'px'}
+                             : {left:'0px', top:(r.y - SPLIT_GAP)+'px', width:W+'px', height:SPLIT_GAP+'px'});
+}
+function syncSplitUI(){
+  $('splitBtn').classList.toggle('on', SPLIT.on);
+  $('splitVal').textContent = SPLIT.on ? 'On' : 'Off';
+  document.body.classList.toggle('split', SPLIT.on);
+  placeSplitBar();
+}
+$('splitBtn').onclick = toggleSplit;
+$('splitMi').onclick = ()=>{ closePops(); toggleSplit(); };
+(()=>{
+  const bar = $('splitBar'); let dragging = false;
+  bar.addEventListener('pointerdown', e=>{ dragging = true; bar.setPointerCapture(e.pointerId); bar.classList.add('drag'); e.preventDefault(); });
+  bar.addEventListener('pointermove', e=>{
+    if(!dragging) return;
+    SPLIT.ratio = clamp(splitDir()==='h' ? e.clientX/W : e.clientY/H, .2, .8);
+    relayout();
+  });
+  const end = ()=>{ dragging = false; bar.classList.remove('drag'); };
+  bar.addEventListener('pointerup', end); bar.addEventListener('pointercancel', end);
+  bar.addEventListener('dblclick', ()=>{ SPLIT.ratio = .5; relayout(); });
+})();
+cv.addEventListener('pointerdown', e=>{
+  if(!SPLIT.on || drag || gesture || pointers.size) return;
+  const i = paneAt(e.clientX, e.clientY);
+  if(i!==SPLIT.active) activatePane(i);
+}, true);
+cv.addEventListener('wheel', e=>{
+  if(!SPLIT.on || drag || gesture) return;
+  const i = paneAt(e.clientX, e.clientY);
+  if(i!==SPLIT.active) activatePane(i);
+}, {capture:true, passive:true});
+window.addEventListener('drop', e=>{
+  if(!SPLIT.on) return;
+  const i = paneAt(e.clientX, e.clientY);
+  if(i!==SPLIT.active) activatePane(i);
+}, true);
+cv.addEventListener('pointermove', e=>{ SPLIT.pt = {x:e.clientX, y:e.clientY}; }, {passive:true});
+cv.addEventListener('pointerup', e=>{
+  if(SPLIT.on && drag && drag.mode==='move' && drag.moved){
+    const i = paneAt(e.clientX, e.clientY);
+    if(i!==SPLIT.active) drag.transferTo = {pane:i, x:e.clientX, y:e.clientY};
+  }
+}, true);
+
 
 const S = {
   tool:'pen', prevTool:'pen', theme:'chalkboard', grid:'none',
@@ -758,17 +1042,29 @@ function pushUndo(){
 }
 function undo(){
   const p = page(); if(!p.undo.length) return;
-  p.redo.push(p.objects.slice()); editCount++;
-  p.objects = mergeSnapshot(p.objects, p.undo.pop());
+  stepHistory(p, 'undo', true);
   S.selection = S.selection.filter(o=>p.objects.includes(o));
   sceneDirty = true; syncHistoryButtons();
 }
 function redo(){
   const p = page(); if(!p.redo.length) return;
-  p.undo.push(p.objects.slice()); editCount++;
-  p.objects = mergeSnapshot(p.objects, p.redo.pop());
+  stepHistory(p, 'redo', true);
   S.selection = S.selection.filter(o=>p.objects.includes(o));
   sceneDirty = true; syncHistoryButtons();
+}
+/* one step back or forward; a step linked to another board (moving things
+   across the split screen) takes that board along with it */
+function stepHistory(p, dir, link){
+  const from = dir==='undo' ? p.undo : p.redo, to = dir==='undo' ? p.redo : p.undo;
+  const snap = from.pop(), cur = p.objects.slice();
+  if(snap.also) cur.also = snap.also;
+  to.push(cur); editCount++;
+  p.objects = mergeSnapshot(p.objects, snap);
+  const o = snap.also;
+  if(link && o && o!==p && S.pages.includes(o)){
+    const f2 = dir==='undo' ? o.undo : o.redo;
+    if(f2.length && f2[f2.length-1].also===p) stepHistory(o, dir, false);
+  }
 }
 function syncHistoryButtons(){
   $('undo').disabled = !page().undo.length;
@@ -797,6 +1093,7 @@ function resize(){
   W = window.innerWidth; H = window.innerHeight;
   for(const c of [cv,sceneCv,liveCv]){ c.width = Math.round(W*dpr); c.height = Math.round(H*dpr); }
   cv.style.width = W+'px'; cv.style.height = H+'px';
+  if(SPLIT.on) relayout(); else setViewRect();
   sceneDirty = true;
 }
 window.addEventListener('resize', resize);
@@ -1118,6 +1415,13 @@ function drawObject(c,o){
 }
 
 function rebuildScene(){
+  if(SPLIT.on){
+    sctx.setTransform(1,0,0,1,0,0);
+    sctx.fillStyle = THEMES[S.theme].dark ? '#07080a' : '#aeb4bd';
+    sctx.fillRect(0, 0, sceneCv.width, sceneCv.height);
+    SPLIT.panes.forEach((P, i)=> withPane(i, paneScene));
+    return;
+  }
   paintBackground(sctx);
   const v = view();
   renderObjects(sctx, page().objects, [dpr*v.s,0,0,dpr*v.s,dpr*v.x,dpr*v.y], {x0:0, y0:0, x1:sceneCv.width, y1:sceneCv.height});
@@ -1233,18 +1537,30 @@ function drawOverlay(){
 
 /* ---------------- main loop ---------------- */
 function frame(){
+  syncPanes();
   maybeRebase();
   updateConnectors();
   animateSliders();
+  if(SPLIT.on) withPane(1-SPLIT.active, ()=>{ updateConnectors(); animateSliders(); });
   syncContrastPop();
   const v = view();
-  const key = [v.x|0,v.y|0,v.s.toFixed(4),W,H,S.theme,S.grid,S.page,page().objects.length].join('|');
+  const key = (SPLIT.on ? splitSceneKey() : [v.x|0,v.y|0,v.s.toFixed(4),S.page,page().objects.length].join('|')) + '|' + [W,H,S.theme,S.grid].join('|');
   if(sceneDirty || key!==sceneKey){ rebuildScene(); sceneBuilds++; sceneKey = key; sceneDirty = false; }
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,cv.width,cv.height);
   ctx.drawImage(sceneCv,0,0);
-  if(live){ ctx.globalAlpha = liveAlpha; ctx.drawImage(liveCv,0,0); ctx.globalAlpha = 1; }
-  drawOverlay();
+  if(SPLIT.on){
+    const A = SPLIT.panes[SPLIT.active], O = SPLIT.panes[1-SPLIT.active];
+    clipTo(ctx, A.rect);
+    if(live){ ctx.globalAlpha = liveAlpha; ctx.drawImage(liveCv,0,0); ctx.globalAlpha = 1; }
+    drawOverlay();
+    ctx.restore();
+    withPane(1-SPLIT.active, ()=>{ clipTo(ctx, O.rect); ctx.setTransform(dpr,0,0,dpr,0,0); drawPeople(ctx); ctx.restore(); });
+    drawSplitChrome(ctx);
+  } else {
+    if(live){ ctx.globalAlpha = liveAlpha; ctx.drawImage(liveCv,0,0); ctx.globalAlpha = 1; }
+    drawOverlay();
+  }
   syncSelBar();
   recTick();
   requestAnimationFrame(frame);
@@ -1648,6 +1964,7 @@ function endSelect(){
     if(b) o['b'+end] = b; else delete o['b'+end];
   }
   if(drag.mode==='move' && !drag.moved){ const p=page(); p.undo.pop(); syncHistoryButtons(); }
+  if(drag.mode==='move' && drag.moved && drag.transferTo){ const list = drag.list, t = drag.transferTo; queueMicrotask(()=> moveToPane(list, t)); }
   sceneDirty = true;
 }
 
@@ -1824,11 +2141,11 @@ async function formatTextAsMath(o){
   sceneDirty = true;
 }
 function graphLines(lines, from, keep){
-  const s = view().s, w = Math.min(560, W*0.62)/s, h = w*0.64;
+  const s = view().s, w = Math.min(560, VW*0.62)/s, h = w*0.64;
   let x, y;
   if(from && keep){ const b = bbox(from); x = b.x; y = b.y + b.h + 16/s; }
   else if(from){ const b = bbox(from); x = b.x; y = b.y; }
-  else { const c = S2W(W/2, H/2); x = c.x-w/2; y = c.y-h/2; }
+  else { const c = S2W(VX0+VW/2, VY0+VH/2); x = c.x-w/2; y = c.y-h/2; }
   const hasConst = lines.some(l=>/^\s*[a-zA-Z]\s*=\s*[^<>={}]+$/.test(l) && !/^\s*[xyrt]\s*=/.test(l));
   placeNew({id:uid(), type:'graph', tool:'graph', color:from ? from.color : S.color, size:3, sliders:hasConst,
             exprs:lines.slice(), x0:-10, x1:10, y0:null, y1:null, x, y, w, h, rot:0});
@@ -1895,11 +2212,11 @@ function placeImage(src, at){
   im.onload = ()=>{
     imgCache.set(src, im);
     const v = view();
-    const maxW = (W*.5)/v.s, maxH = (H*.55)/v.s;
+    const maxW = (VW*.5)/v.s, maxH = (VH*.55)/v.s;
     let w = im.naturalWidth, h = im.naturalHeight;
     const k = Math.min(maxW/w, maxH/h, 1.6);
     w*=k; h*=k;
-    const c = at || S2W(W/2, H/2);
+    const c = at || S2W(VX0+VW/2, VY0+VH/2);
     pushUndo();
     page().objects.push({id:uid(), type:'image', tool:'image', src, x:c.x-w/2, y:c.y-h/2, w, h, rot:0});
     sceneDirty = true;
@@ -1936,7 +2253,7 @@ window.addEventListener('paste', e=>{
     const txt = e.clipboardData?.getData('text');
     if(txt){
       pushUndo();
-      const c = S2W(W/2,H/2);
+      const c = S2W(VX0+VW/2, VY0+VH/2);
       const s = view().s;
       page().objects.push({id:uid(), type:'text', tool:'text', color:S.color, size:28/s, rot:0, x:c.x-100/s, y:c.y-20/s, text:txt});
       sceneDirty = true;
@@ -2043,7 +2360,7 @@ function withPage(i, fn){
   try{ return fn(); } finally { S.page = old; sceneDirty = true; }
 }
 function boardBox(area){
-  if(area==='view'){ const a = S2W(0,0), b = S2W(W,H); return {box:{x:a.x, y:a.y, w:b.x-a.x, h:b.y-a.y}, objs:page().objects.filter(o=>!o._off)}; }
+  if(area==='view'){ const a = S2W(VX0,VY0), b = S2W(VX0+VW,VY0+VH); return {box:{x:a.x, y:a.y, w:b.x-a.x, h:b.y-a.y}, objs:page().objects.filter(o=>!o._off)}; }
   return exportBox();
 }
 function paintSurface(g, w, h){
@@ -3208,12 +3525,12 @@ function instHit(wp){
 function toggleInst(key){
   if(INST[key]) INST[key] = null;
   else {
-    const s = view().s, c = S2W(W/2, H/2);
+    const s = view().s, c = S2W(VX0+VW/2, VY0+VH/2);
     if(key==='ruler'){
-      const cm = clamp(Math.floor(W*0.78/CM), 5, 30);
+      const cm = clamp(Math.floor(VW*0.78/CM), 5, 30);
       INST.ruler = {x:c.x, y:c.y - 60/s, a:0, len:cm*CM, wid:64, k:1/s};
     } else {
-      const r = Math.min(170, H*0.3);
+      const r = Math.min(170, VH*0.3);
       INST.prot = {x:c.x, y:c.y + r*0.6/s, a:0, r, k:1/s};
     }
   }
@@ -3512,7 +3829,7 @@ function openGraphDialog(existing){
     if(existing && page().objects.includes(existing)){
       pushUndo(); Object.assign(beginEdit([existing])[0], fields); sceneDirty = true;
     } else {
-      const s = view().s, w = Math.min(560, W*0.62)/s, h = w*0.64, c = S2W(W/2, H/2);
+      const s = view().s, w = Math.min(560, VW*0.62)/s, h = w*0.64, c = S2W(VX0+VW/2, VY0+VH/2);
       placeNew(Object.assign({id:uid(), type:'graph', tool:'graph', color:S.color, size:3, x:c.x-w/2, y:c.y-h/2, w, h, rot:0}, fields));
     }
     closeDlg();
@@ -3581,7 +3898,7 @@ function openEqDialog(existing){
       Object.assign(e, {tex:r.tex, svg:r.svg, vw:r.vw, vh:r.vh, w:r.vw*em, h:r.vh*em});
       sceneDirty = true;
     } else {
-      const em = EQ_EM/view().s, c = S2W(W/2, H/2), w = r.vw*em, h = r.vh*em;
+      const em = EQ_EM/view().s, c = S2W(VX0+VW/2, VY0+VH/2), w = r.vw*em, h = r.vh*em;
       placeNew({id:uid(), type:'equation', tool:'equation', tex:r.tex, svg:r.svg, vw:r.vw, vh:r.vh,
                 color:S.color, size:S.size, x:c.x-w/2, y:c.y-h/2, w, h, rot:0});
     }
@@ -4099,6 +4416,10 @@ function rebasePage(pg, nb){
   for(const snap of pg.redo) for(const o of snap) all.add(o);
   const B = baseOf(pg);
   for(const o of all) if(!o._off && (!o._P || o._sig !== geoSig(o))) syncExact(o, B);
+  if(SPLIT.on) for(const P of SPLIT.panes) if(P.pg===pg && P.view!==pg.view){
+    const cx = hpToFloat(hpSub(nb.x, B.x), B.z), cy = hpToFloat(hpSub(nb.y, B.y), B.z), f = 2**(nb.z - B.z);
+    P.view.x += cx*P.view.s; P.view.y += cy*P.view.s; P.view.s /= f;
+  }
   pg.base = nb;
   for(const o of all) if(o._P) deriveFrom(o, nb);
   S.selection = S.selection.filter(o=>!o._off);
@@ -4108,14 +4429,14 @@ function maybeRebase(force){
   const pg = page(), v = pg.view;
   if(drag || gesture || editing || live || dlgOpen()) return;
   const k = (v.s >= 16 || v.s < 1/16) ? Math.round(Math.log2(v.s)) : 0;
-  const cx = (W/2 - v.x)/v.s, cy = (H/2 - v.y)/v.s;
+  const cx = (VX0+VW/2 - v.x)/v.s, cy = (VY0+VH/2 - v.y)/v.s;
   if(!force && !k && Math.abs(cx) < 2**20 && Math.abs(cy) < 2**20) return;
   const B = baseOf(pg), f = 2**k;
   const nb = {x: hpAdd(B.x, hpFromFloat(cx, B.z)), y: hpAdd(B.y, hpFromFloat(cy, B.z)), z: B.z + k};
   for(const I of [INST.ruler, INST.prot]) if(I){ I.x = (I.x-cx)*f; I.y = (I.y-cy)*f; I.k = (I.k||1)*f; }
   laser = [];
   rebasePage(pg, nb);
-  v.s = v.s/f; v.x = W/2; v.y = H/2;
+  v.s = v.s/f; v.x = VX0+VW/2; v.y = VY0+VH/2;
   sceneDirty = true; updateZoomLabel();
 }
 /* back to the starting point at 100% */
@@ -4129,7 +4450,7 @@ function resetView(){
     }
     rebasePage(pg, {x:HP0, y:HP0, z:0});
   }
-  const v = pg.view; v.x = 0; v.y = 0; v.s = 1; sceneDirty = true; updateZoomLabel();
+  const v = pg.view; v.x = VX0; v.y = VY0; v.s = 1; sceneDirty = true; updateZoomLabel();
 }
 function trueZoomLog10(){ return Math.log10(view().s) + baseOf(page()).z*Math.LOG10E*Math.LN2; }
 function updateZoomLabel(){
@@ -4185,7 +4506,7 @@ function renderObjects(real, objs, M, devWin){
 /* ================= export: PNG and SVG ================= */
 function exportBox(){
   const objs = page().objects.filter(o=>!o._off);
-  const a = S2W(0,0), b = S2W(W,H), viewBox = {x:a.x, y:a.y, w:b.x-a.x, h:b.y-a.y};
+  const a = S2W(VX0,VY0), b = S2W(VX0+VW,VY0+VH), viewBox = {x:a.x, y:a.y, w:b.x-a.x, h:b.y-a.y};
   if(!objs.length) return {box:viewBox, objs};
   let x0 = 1e300, y0 = 1e300, x1 = -1e300, y1 = -1e300;
   for(const o of objs){ const r = worldBounds(o); x0 = Math.min(x0,r.x0); y0 = Math.min(y0,r.y0); x1 = Math.max(x1,r.x1); y1 = Math.max(y1,r.y1); }
@@ -5080,7 +5401,7 @@ window.addEventListener('keydown', e=>{
   if(e.code==='Space' && !spaceDown){ spaceDown = true; updateCursor(); e.preventDefault(); return; }
   if(viewOnly()){
     const k = e.key.toLowerCase();
-    if(mod ? !['s','0','e'].includes(k) : !['tab','escape','pageup','pagedown','?','f','l','v'].includes(k)) return;
+    if(mod ? !['s','0','e'].includes(k) : !['tab','escape','pageup','pagedown','?','f','l','v','\\'].includes(k)) return;
   }
 
   if(mod){
@@ -5106,6 +5427,7 @@ window.addEventListener('keydown', e=>{
   if(e.key==='PageUp'){ gotoPage(S.page-1); return; }
   if(e.key==='PageDown'){ gotoPage(S.page+1); return; }
   if(e.key==='?'){ $('help').classList.toggle('show'); return; }
+  if(e.key==='\\'){ toggleSplit(); return; }
   if(e.key==='['){ setSize(S.size-Math.max(1,Math.round(S.size*.2))); return; }
   if(e.key===']'){ setSize(S.size+Math.max(1,Math.round(S.size*.2))); return; }
   if(e.key>='1' && e.key<='9'){ const p=THEMES[S.theme].palette[+e.key-1]; if(p) setColor(p); return; }
@@ -5276,12 +5598,13 @@ function applyMeta(m){
 
 /* ---- where someone is looking, exactly ---- */
 function viewExact(pg){
-  const v = pg.view, B = baseOf(pg), cx = (W/2 - v.x)/v.s, cy = (H/2 - v.y)/v.s;
-  return {cx:hpSer(hpAdd(B.x, hpFromFloat(cx, B.z))), cy:hpSer(hpAdd(B.y, hpFromFloat(cy, B.z))), lz:Math.log2(v.s) + B.z, w:Math.round(W), h:Math.round(H)};
+  const R = rectFor(pg), v = pg.view, B = baseOf(pg), cx = (R.x + R.w/2 - v.x)/v.s, cy = (R.y + R.h/2 - v.y)/v.s;
+  return {cx:hpSer(hpAdd(B.x, hpFromFloat(cx, B.z))), cy:hpSer(hpAdd(B.y, hpFromFloat(cy, B.z))), lz:Math.log2(v.s) + B.z, w:Math.round(R.w), h:Math.round(R.h)};
 }
 function applyView(pg, V){
   if(!V || !isFinite(V.lz)) return;
-  if(V.w > 0 && V.h > 0) V = Object.assign({}, V, {lz: V.lz + Math.log2(Math.min(W/V.w, H/V.h))});
+  const R = rectFor(pg);
+  if(V.w > 0 && V.h > 0) V = Object.assign({}, V, {lz: V.lz + Math.log2(Math.min(R.w/V.w, R.h/V.h))});
   const B = baseOf(pg), X = hpDe(V.cx), Y = hpDe(V.cy);
   let s = 2**(V.lz - B.z), lx = hpToFloat(hpSub(X, B.x), B.z), ly = hpToFloat(hpSub(Y, B.y), B.z);
   if(!(s < 16 && s >= 1/16 && Math.abs(lx) < 2**20 && Math.abs(ly) < 2**20)){
@@ -5291,7 +5614,7 @@ function applyView(pg, V){
     rebasePage(pg, {x:X, y:Y, z});
     s = 2**(V.lz - z); lx = 0; ly = 0;
   }
-  pg.view.s = s; pg.view.x = W/2 - lx*s; pg.view.y = H/2 - ly*s;
+  pg.view.s = s; pg.view.x = R.x + R.w/2 - lx*s; pg.view.y = R.y + R.h/2 - ly*s;
   sceneDirty = true; updateZoomLabel();
 }
 function toExact(pg, x, y){ const B = baseOf(pg); return [hpSer(hpAdd(B.x, hpFromFloat(x, B.z))), hpSer(hpAdd(B.y, hpFromFloat(y, B.z)))]; }
@@ -5812,8 +6135,8 @@ function liveTick(){
   }
   // where my pointer is
   const pg = page(), lz = drag && drag.mode==='laser';
-  const at = LV.ptr ? S2W(LV.ptr.x, LV.ptr.y) : null;
-  const v = pg.view, sig = `${pgId(pg)}|${at ? Math.round(LV.ptr.x)+','+Math.round(LV.ptr.y) : '-'}|${v.x.toFixed(1)},${v.y.toFixed(1)},${v.s}|${baseOf(pg).z}|${lz}|${W}x${H}|${S.selection.length}:${S.selection[0] ? S.selection[0].id : ''}`;
+  const at = LV.ptr && paneAt(LV.ptr.x, LV.ptr.y)===SPLIT.active ? S2W(LV.ptr.x, LV.ptr.y) : null;
+  const v = pg.view, sig = `${pgId(pg)}|${at ? Math.round(LV.ptr.x)+','+Math.round(LV.ptr.y) : '-'}|${v.x.toFixed(1)},${v.y.toFixed(1)},${v.s}|${baseOf(pg).z}|${lz}|${VX0},${VY0},${VW}x${VH}|${S.selection.length}:${S.selection[0] ? S.selection[0].id : ''}`;
   if(sig!==LV.prSig || now - LV.lastPr > 1500){
     LV.prSig = sig; LV.lastPr = now;
     const xy = at ? toExact(pg, at.x, at.y) : null;
@@ -5896,11 +6219,11 @@ function drawPeople(c){
       const x0 = clamp(f.x0,-L,L), y0 = clamp(f.y0,-L,L), x1 = clamp(f.x1,-L,L), y1 = clamp(f.y1,-L,L);
       const label = `${p.name} · ${fmtZoomLog2(pr.view.lz)}`;
       c.save();
-      if(x1 < 0 || y1 < 0 || x0 > W || y0 > H){
+      if(x1 < VX0 || y1 < VY0 || x0 > VX0+VW || y0 > VY0+VH){
         // off to one side: a chip on the edge pointing at it
-        const cx = (x0+x1)/2, cy = (y0+y1)/2, dx = cx - W/2, dy = cy - H/2;
-        const t = Math.min((W/2 - 70)/Math.abs(dx || 1e-9), (H/2 - 40)/Math.abs(dy || 1e-9));
-        const ex = W/2 + dx*t, ey = H/2 + dy*t, ang = Math.atan2(dy, dx);
+        const mx = VX0 + VW/2, my = VY0 + VH/2, cx = (x0+x1)/2, cy = (y0+y1)/2, dx = cx - mx, dy = cy - my;
+        const t = Math.min((VW/2 - 70)/Math.abs(dx || 1e-9), (VH/2 - 40)/Math.abs(dy || 1e-9));
+        const ex = mx + dx*t, ey = my + dy*t, ang = Math.atan2(dy, dx);
         c.globalAlpha = .92;
         c.translate(ex, ey);
         c.fillStyle = p.color;
@@ -5911,7 +6234,7 @@ function drawPeople(c){
         c.strokeRect(x0, y0, x1-x0, y1-y0);
         c.globalAlpha = .05; c.fillStyle = p.color; c.fillRect(x0, y0, x1-x0, y1-y0);
         c.globalAlpha = 1;
-        namePill(c, label, clamp(x0, 4, W-160), clamp(y0 - 23, 4, H-24), p.color);
+        namePill(c, label, clamp(x0, VX0+4, VX0+VW-160), clamp(y0 - 23, VY0+4, VY0+VH-24), p.color);
       }
       c.restore();
     }
