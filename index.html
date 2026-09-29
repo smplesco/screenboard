@@ -31,6 +31,7 @@
     --font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
   }
   *{box-sizing:border-box}
+  [hidden]{display:none !important}
   html,body{height:100%;margin:0;overflow:hidden;background:#111;font-family:var(--font);color:var(--fg);
     font-size:13px;letter-spacing:-.005em;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
   canvas#board{position:fixed;inset:0;display:block;touch-action:none;cursor:crosshair}
@@ -230,6 +231,41 @@
   #taPop .tp-sep{width:1px;height:18px;background:var(--hair)}
   @media (pointer:coarse){ #taPop .btn{height:36px} }
 
+  /* ---- surfaces ---- */
+  #surfacePop{width:258px}
+  .sfgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .sf{display:flex;flex-direction:column;align-items:center;gap:5px;padding:7px 4px;border-radius:8px;color:var(--fg);
+    font-size:11.5px;cursor:pointer;position:relative}
+  .sf:hover{background:var(--hover)}
+  .sf.on{background:var(--active)}
+  .sf i{width:46px;height:30px;border-radius:6px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)}
+  .sf i.img{background:linear-gradient(135deg,#4f6fe0,#d9608a 55%,#f0bf62)}
+  .sf i.cust{background:conic-gradient(#f25f5c,#ffe066,#5cd6a1,#4d9bf5,#b07cf0,#f25f5c)}
+  .sf input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+  #surfacePop .mi{margin-top:6px}
+
+  /* ---- contrast suggestion ---- */
+  #cpop{left:50%;bottom:128px;transform:translateX(-50%);display:none;align-items:center;gap:6px;padding:5px 5px 5px 12px;
+    font-size:12.5px;color:var(--fg);max-width:calc(100vw - 20px)}
+  #cpop.show{display:flex}
+  #cpop span{color:var(--fg-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #cpop .tg{height:28px;white-space:nowrap}
+  #cpop .tg.primary{background:#e9ecf1;color:#111316;box-shadow:none;font-weight:600}
+  @media (max-width:760px){ #cpop{bottom:124px} #cpop span{display:none} }
+
+  /* ---- image editor ---- */
+  .ieprev{display:block;width:100%;height:240px;border-radius:10px;background:#0b0c0e;touch-action:none;cursor:crosshair}
+  .iehint{margin:6px 0 4px}
+  .ierow{display:flex;align-items:center;gap:10px;margin-top:10px}
+  .ielab{width:52px;flex:none;font-size:12px;color:var(--fg-dim)}
+  .ierow .chips{margin:0}
+  .chips button.on{background:var(--active);box-shadow:inset 0 0 0 1px rgba(255,255,255,.35)}
+  .ieslider{display:grid;grid-template-columns:78px 1fr 40px;align-items:center;gap:10px;margin-top:8px;font-size:12px;color:var(--fg-dim)}
+  .ieslider em{font-style:normal;text-align:right;font-variant-numeric:tabular-nums;color:var(--fg)}
+  .btn.ghost{margin-top:14px;height:28px;font-size:12px;color:var(--fg-dim)}
+  .chk{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12.5px;color:var(--fg);cursor:pointer}
+  .chk input{width:16px;height:16px;accent-color:#e9ecf1}
+
   /* ---- dialogs ---- */
   #dlgwrap{position:fixed;inset:0;z-index:31;display:none;place-items:center;background:rgba(6,7,9,.55);padding:12px}
   #dlgwrap.show{display:grid}
@@ -298,13 +334,15 @@
   <div class="tp-prev" id="tpLatex"><span class="tp-math" id="tpMath"></span><span class="tp-note" id="tpNote">Formats as math when you click away</span>
     <button class="btn" id="tpKeep" type="button">Keep as text</button></div>
   <i class="tp-sep" id="tpSep"></i>
-  <button class="btn primary" id="tpGraph" type="button" title="Ctrl G"><svg viewBox="0 0 24 24"><path d="M4 4v16h16"/><path d="M7 15c2.5-7 5-7 6-3s3.5 4 6-4"/></svg>Graph it</button>
+  <button class="btn primary" id="tpGraph" type="button" title="Replaces the text. Hold Shift to keep it."><svg viewBox="0 0 24 24"><path d="M4 4v16h16"/><path d="M7 15c2.5-7 5-7 6-3s3.5 4 6-4"/></svg>Graph it</button>
 </div>
 
 <div id="selbar" class="chrome surface">
   <button class="b" id="graphBtn" data-tip="Graph this"><svg viewBox="0 0 24 24"><path d="M4 4v16h16"/><path d="M7 15c2.5-7 5-7 6-3s3.5 4 6-4"/></svg></button>
   <button class="b" id="editBtn" data-tip="Edit"><svg viewBox="0 0 24 24"><path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19z"/></svg></button>
   <i class="div" id="editDiv"></i>
+  <button class="b" id="groupBtn" data-tip="Group (Ctrl G)"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/><path d="M11 7h4a2 2 0 0 1 2 2v4"/></svg></button>
+  <button class="b" id="ungroupBtn" data-tip="Ungroup (Ctrl Shift G)"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/><path d="M14 5h3M5 14v3" stroke-dasharray="2 2"/></svg></button>
   <button class="b" id="dupBtn" data-tip="Duplicate (Ctrl D)"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button>
   <button class="b" id="frontBtn" data-tip="Bring to front"><svg viewBox="0 0 24 24"><rect x="8" y="3" width="12" height="12" rx="2"/><path d="M16 17v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h3"/></svg></button>
   <button class="b" id="backBtn" data-tip="Send to back"><svg viewBox="0 0 24 24"><rect x="4" y="9" width="12" height="12" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/></svg></button>
@@ -313,6 +351,23 @@
 </div>
 
 <button id="zoomPct" class="chrome">100%</button>
+
+<div id="cpop" class="chrome surface"><span id="cpText"></span>
+  <button class="tg primary" id="cpFix" type="button">Fix colors</button>
+  <button class="tg" id="cpSwitch" type="button">Switch background</button>
+  <button class="b" id="cpX" type="button" aria-label="Dismiss"><svg viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></svg></button>
+</div>
+
+<div id="surfacePop" class="pop">
+  <div class="sfgrid">
+    <button class="sf" data-theme="chalkboard" type="button"><i style="background:#12352c"></i><span>Chalkboard</span></button>
+    <button class="sf" data-theme="whiteboard" type="button"><i style="background:#fcfcfa"></i><span>Whiteboard</span></button>
+    <button class="sf" data-theme="slate" type="button"><i style="background:#23262b"></i><span>Slate</span></button>
+    <label class="sf" data-theme="custom"><i class="cust" id="sfCustomSw"></i><span>Any color</span><input type="color" id="sfColor"></label>
+    <button class="sf" id="sfImgOn" type="button"><i class="img"></i><span>Picture…</span></button>
+  </div>
+  <button class="mi" id="sfRemoveImg" type="button" hidden><span>Remove the picture</span></button>
+</div>
 
 <div id="colorPop" class="pop"><div class="swatches" id="swatches"></div></div>
 
@@ -396,6 +451,8 @@
       <h3>Ink</h3>
       <div class="row"><span>Snap to a clean shape</span><em>Hold at the end</em></div>
       <div class="row"><span>Reshape and turn it while snapped</span><em>Keep dragging</em></div>
+      <div class="row"><span>Keep it a square or circle</span><em>Hold Shift</em></div>
+      <div class="row"><span>Stick an arrow to a shape</span><em>End it on the shape</em></div>
       <div class="row"><span>Pick a color</span><em>1 – 9</em></div>
       <div class="row"><span>Thinner, thicker</span><em>[ ]</em></div>
     </div>
@@ -406,6 +463,7 @@
       <div class="row"><span>Undo, redo</span><em>Ctrl Z, Ctrl Y</em></div>
       <div class="row"><span>Paste a photo</span><em>Ctrl V</em></div>
       <div class="row"><span>Duplicate</span><em>Ctrl D</em></div>
+      <div class="row"><span>Group, ungroup</span><em>Ctrl G, Ctrl Shift G</em></div>
       <div class="row"><span>Delete selection</span><em>Del</em></div>
       <div class="row"><span>Front, back</span><em>Ctrl ] , Ctrl [</em></div>
       <div class="row"><span>New board</span><em>Ctrl N</em></div>
@@ -426,6 +484,7 @@
 </div></div>
 
 <input type="file" id="fileImg" accept="image/*" multiple hidden>
+<input type="file" id="fileBg" accept="image/*" hidden>
 <input type="file" id="fileOpen" accept=".screenboard,.json,application/json" hidden>
 
 <script>
@@ -453,11 +512,8 @@ const THEMES = {
   whiteboard:{ label:'Whiteboard', bg:'#fcfcfa', bg2:'#f2f2ee', dark:false,
     guide:'rgba(20,30,40,.09)',
     palette:['#1c1e22','#d92d20','#e8590c','#f0a500','#128a4f','#0b74d1','#5b34c7','#c026a3','#8a5a2b','#64748b'] },
-  paper:{ label:'Grid paper', bg:'#f7f4ec', bg2:'#efeadf', dark:false,
-    guide:'rgba(58,84,120,.16)',
-    palette:['#1b2230','#c0392b','#d35400','#c9960c','#16794f','#1257a5','#5b3fbf','#a61f7a','#7a5230','#5b6875'] }
 };
-const THEME_ORDER = ['chalkboard','whiteboard','slate','paper'];
+const THEME_ORDER = ['chalkboard','whiteboard','slate'];
 const GRIDS = ['none','grid','dots','lines'];
 
 /* ---------------- tools ---------------- */
@@ -657,6 +713,7 @@ function paintBackground(c){
   const g = c.createLinearGradient(0,0,W*.35,H);
   g.addColorStop(0, th.bg); g.addColorStop(1, th.bg2);
   c.fillStyle = g; c.fillRect(0,0,W,H);
+  drawBackgroundImage(c, W, H);
   if(S.grid==='none') return;
   const B = baseOf(page()), lz2 = Math.log2(v.s) + B.z;
   const n = Math.ceil(Math.log2(20/40) - lz2), step = 40 * 2**(n + lz2);
@@ -933,12 +990,14 @@ function getImg(src){
   return im;
 }
 function drawImageObj(c,o){
-  const im = getImg(o.src);
+  const im = imageFor(o);
   const b = bbox(o), cx=b.x+b.w/2, cy=b.y+b.h/2;
   c.save();
   c.translate(cx,cy); c.rotate(o.rot||0); c.translate(-cx,-cy);
-  if(im.complete && im.naturalWidth){
-    c.drawImage(im, b.x, b.y, b.w, b.h);
+  if(im){
+    const nw = im.naturalWidth || im.width, nh = im.naturalHeight || im.height, cr = o.crop || {x:0, y:0, w:1, h:1};
+    imageClip(c, o, b);
+    c.drawImage(im, cr.x*nw, cr.y*nh, cr.w*nw, cr.h*nh, b.x, b.y, b.w, b.h);
   } else {
     c.fillStyle='rgba(127,127,127,.18)'; c.fillRect(b.x,b.y,b.w,b.h);
   }
@@ -989,6 +1048,7 @@ function drawOverlay(){
   drawInstruments(ctx);
   ctx.setTransform(dpr,0,0,dpr,0,0);
   const th = THEMES[S.theme];
+  drawLinkHighlights(ctx);
   drawProtRay(ctx);
   if(drag && drag.mode==='draw' && drag.guide && hover){
     const t = guideReading(drag.guide);
@@ -1068,6 +1128,9 @@ function drawOverlay(){
 /* ---------------- main loop ---------------- */
 function frame(){
   maybeRebase();
+  updateConnectors();
+  animateSliders();
+  syncContrastPop();
   const v = view();
   const key = [v.x|0,v.y|0,v.s.toFixed(4),W,H,S.theme,S.grid,S.page,page().objects.length].join('|');
   if(sceneDirty || key!==sceneKey){ rebuildScene(); sceneKey = key; sceneDirty = false; }
@@ -1081,7 +1144,7 @@ function frame(){
   requestAnimationFrame(frame);
 }
 
-let selShown = false, editShown = null, graphShown = null;
+let selShown = false, editShown = null, graphShown = null, groupShown = '';
 const graphableCache = new WeakMap();
 function selectionGraphLines(){
   if(S.selection.length!==1) return null;
@@ -1102,6 +1165,8 @@ function syncSelBar(){
     $('editBtn').style.display = ed ? '' : 'none';
     $('editDiv').style.display = ed ? '' : 'none';
   }
+  const gs = (canGroup() ? 'g' : '') + (canUngroup() ? 'u' : '');
+  if(gs !== groupShown){ groupShown = gs; $('groupBtn').style.display = gs.includes('g') ? '' : 'none'; $('ungroupBtn').style.display = gs.includes('u') ? '' : 'none'; }
   const gr = !drag && !!selectionGraphLines();
   if(gr !== graphShown){ graphShown = gr; $('graphBtn').style.display = gr ? '' : 'none'; }
   if(show===selShown) return;
@@ -1192,6 +1257,23 @@ function onDown(e){
     return;
   }
 
+  const sh = sliderHit(wp);
+  if(sh){
+    if(sh.kind==='play'){
+      const o = sh.o; o._play = o._play || {};
+      o._play[sh.row.name] = o._play[sh.row.name] ? 0 : 1; lastAnim = 0; sceneDirty = true;
+      drag = {mode:'noop'}; return;
+    }
+    const keep = S.selection.slice();
+    pushUndo();
+    const g = beginEdit([sh.o])[0];
+    S.selection = keep.map(x=> x===sh.o ? g : x);
+    g.srange = Object.assign({}, g.srange, {[sh.row.name]:[sh.row.min, sh.row.max]});
+    if(g._play) g._play[sh.row.name] = 0;
+    setConst(g, sh.row.name, sliderValueAt(g, sh.row, wp)); sceneDirty = true;
+    drag = {mode:'slider', o:g, row:sh.row};
+    return;
+  }
   const ih = instHit(wp);
   if(ih){
     if(ih.kind==='close'){ INST[ih.key] = null; syncMathPop(); overInst = false; drag = {mode:'noop'}; return; }
@@ -1248,18 +1330,21 @@ function onMove(e){
     return;
   }
   if(drag.mode==='noop') return;
+  if(drag.mode==='slider'){ setConst(drag.o, drag.row.name, sliderValueAt(drag.o, drag.row, wp)); sceneDirty = true; return; }
   if(drag.mode==='snapped'){
     const o = drag.o;
     if(o.type==='rect' || o.type==='ellipse' || o.type==='triangle'){
-      reshapeSnapped(o, drag.base, drag.at, wp);
+      reshapeSnapped(o, drag.base, drag.at, wp, e.shiftKey);
       redrawLiveShape();
       return;
     }
     if(o.type==='line' || o.type==='arrow'){
-      let dx = wp.x-o.x, dy = wp.y-o.y;
+      const S0 = drag.rawS;
+      let dx = wp.x-S0.x, dy = wp.y-S0.y;
       const ang = Math.atan2(dy,dx), q = Math.round(ang/(Math.PI/4))*(Math.PI/4), L = Math.hypot(dx,dy);
       if(e.shiftKey || Math.abs(ang-q) < 0.07){ dx = Math.cos(q)*L; dy = Math.sin(q)*L; }
-      o.w = dx; o.h = dy; redrawLiveShape();
+      drag.rawE = {x:S0.x+dx, y:S0.y+dy};
+      liveLink(o, S0, drag.rawE); redrawLiveShape();
     }
     return;
   }
@@ -1294,7 +1379,8 @@ function onMove(e){
         x2 = drag.ox + Math.sign(x2-drag.ox||1)*d; y2 = drag.oy + Math.sign(y2-drag.oy||1)*d;
       }
     }
-    o.w = x2-drag.ox; o.h = y2-drag.oy;
+    if(o.type==='line' || o.type==='arrow'){ drag.rawE = {x:x2, y:y2}; liveLink(o, {x:drag.ox, y:drag.oy}, drag.rawE); }
+    else { o.w = x2-drag.ox; o.h = y2-drag.oy; }
     redrawLiveShape();
     return;
   }
@@ -1310,8 +1396,11 @@ function onUp(e){
   if(!drag){ return; }
   const mode = drag.mode;
   if(mode==='pan'){ cv.style.cursor=''; }
-  else if(mode==='draw' || mode==='snapped'){ endLive(true); }
-  else if(mode==='inst' || mode==='noop'){ /* nothing to commit */ }
+  else if(mode==='draw' || mode==='snapped'){
+    if(mode==='snapped' && isLink(live)) liveLink(live, drag.rawS, drag.rawE);
+    endLive(true);
+  }
+  else if(mode==='inst' || mode==='noop' || mode==='slider'){ /* nothing to commit */ }
   else if(mode==='shape'){
     const o = live;
     if(Math.abs(o.w)<2 && Math.abs(o.h)<2) endLive(false); else endLive(true);
@@ -1363,11 +1452,12 @@ function startSelect(sp, wp, e){
     drag = {mode:'marquee'};
     return;
   }
+  const grp = groupMembers(target);
   if(e.shiftKey){
-    if(S.selection.includes(target)) S.selection = S.selection.filter(o=>o!==target);
-    else S.selection = S.selection.concat([target]);
+    if(S.selection.includes(target)) S.selection = S.selection.filter(o=>!grp.includes(o));
+    else S.selection = S.selection.concat(grp.filter(o=>!S.selection.includes(o)));
   } else if(!S.selection.includes(target)){
-    S.selection = [target];
+    S.selection = grp;
   }
   if(!S.selection.length) return;
   pushUndo();
@@ -1379,15 +1469,16 @@ function moveSelect(sp, wp, e){
     marquee.x2 = sp.x; marquee.y2 = sp.y;
     const a = S2W(Math.min(marquee.x1,marquee.x2), Math.min(marquee.y1,marquee.y2));
     const b = S2W(Math.max(marquee.x1,marquee.x2), Math.max(marquee.y1,marquee.y2));
-    S.selection = page().objects.filter(o=>{
+    S.selection = expandGroups(page().objects.filter(o=>{
       if(o._off) return false;
       const bb = bbox(o);
       return bb.x < b.x && bb.x+bb.w > a.x && bb.y < b.y && bb.y+bb.h > a.y;
-    });
+    }));
     return;
   }
   if(drag.mode==='move'){
     let dx = wp.x-drag.ox, dy = wp.y-drag.oy;
+    if(!drag.released && (dx || dy)){ releaseLinks(drag.list); drag.released = true; }
     if(e.shiftKey){ if(Math.abs(dx)>Math.abs(dy)) dy=0; else dx=0; }
     drag.list.forEach((o,i)=>{
       const s = drag.start[i];
@@ -1430,6 +1521,12 @@ function moveSelect(sp, wp, e){
 }
 function endSelect(){
   if(drag.mode==='marquee'){ marquee = null; return; }
+  if(drag.mode==='resize' && isLink(drag.o)){
+    // an end handle dropped on a shape sticks to it; dropped in the open, it lets go
+    const o = drag.o, end = drag.key==='p1' ? 1 : 2, other = end===1 ? o.b2 : o.b1;
+    const b = bindingFor(end===1 ? {x:o.x, y:o.y} : {x:o.x+o.w, y:o.y+o.h}, o, other && other.id);
+    if(b) o['b'+end] = b; else delete o['b'+end];
+  }
   if(drag.mode==='move' && !drag.moved){ const p=page(); p.undo.pop(); syncHistoryButtons(); }
   sceneDirty = true;
 }
@@ -1517,7 +1614,7 @@ function openTextEditor(wp, existing){
     ev.stopPropagation();
     if(ev.key==='Escape'){ closeTextEditor(); }
     if(ev.key==='Enter' && (ev.ctrlKey||ev.metaKey)) closeTextEditor();
-    if((ev.key==='g' || ev.key==='G') && (ev.ctrlKey||ev.metaKey)){ ev.preventDefault(); if(!$('tpGraph').hidden) graphFromEditor(); }
+    if((ev.key==='g' || ev.key==='G') && (ev.ctrlKey||ev.metaKey)){ ev.preventDefault(); if(!$('tpGraph').hidden) graphFromEditor(ev.shiftKey); }
   });
   ta.addEventListener('blur', closeTextEditor);
   editing = {o, ta, existing:!!existing, keepText:false};
@@ -1606,20 +1703,24 @@ async function formatTextAsMath(o){
   S.selection = S.selection.map(x=>x===o ? eq : x);
   sceneDirty = true;
 }
-function graphLines(lines, below){
+function graphLines(lines, from, keep){
   const s = view().s, w = Math.min(560, W*0.62)/s, h = w*0.64;
   let x, y;
-  if(below){ const b = bbox(below); x = b.x; y = b.y + b.h + 16/s; }
+  if(from && keep){ const b = bbox(from); x = b.x; y = b.y + b.h + 16/s; }
+  else if(from){ const b = bbox(from); x = b.x; y = b.y; }
   else { const c = S2W(W/2, H/2); x = c.x-w/2; y = c.y-h/2; }
-  placeNew({id:uid(), type:'graph', tool:'graph', color:below ? below.color : S.color, size:3,
+  const hasConst = lines.some(l=>/^\s*[a-zA-Z]\s*=\s*[^<>={}]+$/.test(l) && !/^\s*[xyrt]\s*=/.test(l));
+  placeNew({id:uid(), type:'graph', tool:'graph', color:from ? from.color : S.color, size:3, sliders:hasConst,
             exprs:lines.slice(), x0:-10, x1:10, y0:null, y1:null, x, y, w, h, rot:0});
+  // the equation was only there to be graphed: the graph takes its place (one undo brings it back)
+  if(from && !keep){ const pg = page(), i = pg.objects.indexOf(from); if(i >= 0){ pg.objects.splice(i, 1); sceneDirty = true; } }
 }
-function graphFromEditor(){
+function graphFromEditor(keep){
   if(!editing) return;
   const lines = graphLinesFor(editing.ta.value);
   if(!lines) return;
   const o = closeTextEditor();
-  graphLines(lines, o);
+  graphLines(lines, o, keep);
 }
 let tpSeq = 0, tpTimer = 0;
 function hideTextSuggest(){ $('taPop').classList.remove('show'); tpSeq++; clearTimeout(tpTimer); }
@@ -1665,7 +1766,7 @@ function suggestForText(){
 // clicks in the suggestion keep the text box focused, so it doesn't close under the pointer
 $('taPop').addEventListener('pointerdown', e=> e.preventDefault());
 $('taPop').addEventListener('mousedown', e=> e.preventDefault());
-$('tpGraph').onclick = ()=> graphFromEditor();
+$('tpGraph').onclick = e=> graphFromEditor(e.shiftKey);
 $('tpKeep').onclick = ()=>{ if(editing){ editing.keepText = true; suggestForText(); editing.ta.focus(); } };
 
 /* ---------------- images ---------------- */
@@ -1745,7 +1846,7 @@ function deObj(c){
 }
 function saveBoards(){
   for(const pg of S.pages) for(const o of pg.objects) if(!o._off && (!o._P || o._sig !== geoSig(o))) syncExact(o, baseOf(pg));
-  const data = {app:'screenboard', v:2, theme:S.theme, grid:S.grid,
+  const data = {app:'screenboard', v:2, theme:S.theme, grid:S.grid, customColor:S.customColor||null, background:bgImg.src||null,
     pages:S.pages.map(p=>{ const B = baseOf(p); return {objects:p.objects.map(serObj), base:{x:hpSer(B.x), y:hpSer(B.y), z:B.z}, view:{...p.view}}; })};
   download(new Blob([JSON.stringify(data)],{type:'application/json'}), `Screenboard ${stamp()}.screenboard`);
 }
@@ -1762,7 +1863,10 @@ $('fileOpen').addEventListener('change', e=>{
         view: p.view && p.view.s>0 ? {x:+p.view.x||0, y:+p.view.y||0, s:+p.view.s} : {x:0,y:0,s:1},
         base: p.base ? {x:hpDe(p.base.x), y:hpDe(p.base.y), z:+p.base.z||0} : {x:HP0, y:HP0, z:0}}));
       S.page = 0; S.selection = [];
-      if(d.theme && THEMES[d.theme]) setTheme(d.theme);
+      if(d.customColor){ S.customColor = d.customColor; makeCustomTheme(d.customColor); }
+      const th = d.theme==='paper' ? 'whiteboard' : d.theme;
+      if(th && THEMES[th]) setTheme(th);
+      setBackgroundImage(d.background || null);
       if(d.grid) S.grid = d.grid;
       sceneDirty = true; syncPages(); syncHistoryButtons(); updateZoomLabel();
     }catch(err){ toast("That file wasn't a saved board."); }
@@ -1960,10 +2064,17 @@ function armSnap(sp){
 /* after a snap, the point you grabbed follows the pen: the shape turns to face it and
    the side you grabbed stretches, so the proportions are free. Near-equal sides snap
    to a square or circle, and the angle clicks to 15° steps when close. */
-function reshapeSnapped(o, B, at, wp){
+function reshapeSnapped(o, B, at, wp, shift){
   const cx = B.x+B.w/2, cy = B.y+B.h/2, rot0 = B.rot||0, a0 = B.w/2, b0 = B.h/2, minR = 4/view().s;
   const g = rot(at.x, at.y, cx, cy, -rot0), gx = g.x-cx, gy = g.y-cy;
   const vx = wp.x-cx, vy = wp.y-cy, L = Math.hypot(vx, vy);
+  if(shift){
+    const k = L/Math.max(Math.hypot(gx, gy), minR);
+    let a = a0*k, b = b0*k;
+    if(o.type!=='triangle') a = b = Math.max(minR, Math.max(a0, b0)*k);
+    o.w = 2*a; o.h = 2*b; o.x = cx-a; o.y = cy-b; o.rot = o.type==='ellipse' ? 0 : rot0;
+    return;
+  }
   let a, b, lx, ly;
   if(Math.hypot(gx, gy) < Math.min(a0, b0)*0.2){
     const k = Math.max(minR/Math.max(a0, b0), L/Math.max(Math.hypot(gx, gy), minR));
@@ -1990,7 +2101,7 @@ function trySnap(){
   const o = Object.assign({id:uid(), tool:live.tool, color:live.color, size:live.size, fill:false, dash:false}, sh);
   const at = drag.lastWp || live.points[live.points.length-1];
   beginLive(o); liveAlpha = 1; redrawLiveShape();
-  drag = {mode:'snapped', o, base:cloneObj(o), at:{x:at.x, y:at.y}};
+  drag = {mode:'snapped', o, base:cloneObj(o), at:{x:at.x, y:at.y}, rawS:{x:o.x, y:o.y}, rawE:{x:o.x+o.w, y:o.y+o.h}};
 }
 
 /* ================= math: expressions ================= */
@@ -2459,7 +2570,7 @@ function graphDetail(o){
   const hit = graphDetailCache.get(o);
   if(hit && hit.key===key) return hit;
   const now = performance.now();
-  if(hit && !RENDER.exporting && now - hit.t < 90){ clearTimeout(hit.timer); hit.timer = setTimeout(()=>{ sceneDirty = true; }, 110); return hit; }
+  if(hit && hit.rkey===R.key && !RENDER.exporting && now - hit.t < 90){ clearTimeout(hit.timer); hit.timer = setTimeout(()=>{ sceneDirty = true; }, 110); return hit; }
 
   const prog = R.prog, E = Object.assign({}, prog.consts);
   const toPx = p => [p[0]*pxX, p[1]*pxY];
@@ -2495,7 +2606,7 @@ function graphDetail(o){
     }
     items.push(g);
   }
-  const out = {key, items, t:performance.now(), mx0, mx1, my0, my1};
+  const out = {key, rkey:R.key, items, t:performance.now(), mx0, mx1, my0, my1};
   graphDetailCache.set(o, out);
   return out;
 }
@@ -2625,8 +2736,9 @@ function drawGraph(c, o){
       ty += fs*1.4;
     };
     gd.items.forEach((g,k)=> keyLine(g.label, graphColor(o,k), true));
-    R.prog.constLines.forEach(cl=> keyLine(cl.label, `rgba(${ink},.6)`, false));
-  }
+    if(!o.sliders) R.prog.constLines.forEach(cl=> keyLine(cl.label, `rgba(${ink},.6)`, false));
+    drawSliders(c, o, b, fs, s, ink);
+  } else o._sl = null;
   c.restore();
 }
 
@@ -2921,6 +3033,7 @@ const GRAPH_HTML = `
     <label class="fld"><span>y from</span><input id="gY0" type="number" step="any" placeholder="Auto"></label>
     <label class="fld"><span>y to</span><input id="gY1" type="number" step="any" placeholder="Auto"></label>
   </div>
+  <label class="chk"><input type="checkbox" id="gSliders"> Sliders on the graph for constants like a = 2</label>
   <canvas id="gPrev" class="gprev"></canvas>
   <p class="note">Anything in x and y works: y = …, x = …, x^2 + y^2 = 25, or &lt; and &gt; to shade a region. Polar is r = … with θ, and curves are (x, y) using t. Add {0 &lt; x &lt; 3} to draw only part of a curve, and a line like a = 2 to define a constant. Leave y empty for equal scales on both axes.</p>`;
 
@@ -2958,6 +3071,9 @@ function openGraphDialog(existing){
   $('gX1').value = existing ? existing.x1 : 10;
   $('gY0').value = existing && existing.y0!=null ? existing.y0 : '';
   $('gY1').value = existing && existing.y1!=null ? existing.y1 : '';
+  $('gSliders').checked = existing ? !!existing.sliders : /^\s*[a-zA-Z]\s*=\s*[^<>={}]+$/m.test($('gExpr').value);
+  $('gExpr').addEventListener('input', ()=>{ if(!existing && /^\s*[a-zA-Z]\s*=\s*[^<>={}]+$/m.test($('gExpr').value) && !$('gSliders').dataset.touched) $('gSliders').checked = true; });
+  $('gSliders').addEventListener('change', ()=>{ $('gSliders').dataset.touched = '1'; });
   const update = ()=>{ const r = readGraphForm(); $('dlgMsg').textContent = r.error || ''; $('dlgOk').disabled = !r.ok; drawGraphPreview(r); };
   ['gExpr','gX0','gX1','gY0','gY1'].forEach(id=> $(id).addEventListener('input', update));
   const ta = $('gExpr');
@@ -2981,7 +3097,7 @@ function openGraphDialog(existing){
   update();
   dlg = {ok(){
     const r = readGraphForm(); if(!r.ok) return;
-    const fields = {exprs:r.exprs.slice(), x0:r.x0, x1:r.x1, y0:r.y0, y1:r.y1};
+    const fields = {exprs:r.exprs.slice(), x0:r.x0, x1:r.x1, y0:r.y0, y1:r.y1, sliders:$('gSliders').checked};
     if(existing && page().objects.includes(existing)){
       pushUndo(); Object.assign(beginEdit([existing])[0], fields); sceneDirty = true;
     } else {
@@ -3063,9 +3179,10 @@ function openEqDialog(existing){
   setTimeout(()=> ta.focus(), 0);
 }
 
-const EDITABLE = ['text','graph','equation'];
+const EDITABLE = ['text','graph','equation','image'];
 function editObject(o){
-  if(o.type==='text') openTextEditor(null, o);
+  if(o.type==='image') openImageDialog(o);
+  else if(o.type==='text') openTextEditor(null, o);
   else if(o.type==='graph') openGraphDialog(o);
   else if(o.type==='equation') openEqDialog(o);
 }
@@ -3401,10 +3518,16 @@ class VectorCtx {
   }
   fillText(t,x,y){ this.text(t,x,y,'fill'); }
   strokeText(t,x,y){ this.text(t,x,y,'stroke'); }
-  drawImage(img, x, y, w, h){
-    const m = this.m, st = this.st;
+  drawImage(img, ...args){
+    const m = this.m, st = this.st, nw = img.naturalWidth || img.width, nh = img.naturalHeight || img.height;
+    let sx = 0, sy = 0, sw = nw, sh = nh, x, y, w, h;
+    if(args.length >= 8) [sx, sy, sw, sh, x, y, w, h] = args; else [x, y, w, h] = args;
+    const full = !sx && !sy && sw===nw && sh===nh;
     if(this.mode==='svg'){
-      this.out.push(`<image href="${svgEsc(img.src)}" x="${fmt(x)}" y="${fmt(y)}" width="${fmt(w)}" height="${fmt(h)}" preserveAspectRatio="none" transform="matrix(${m.map(fmt).join(' ')})"${st.globalAlpha<1 ? ` opacity="${fmt(st.globalAlpha)}"` : ''}/>`);
+      const src = img.src || img._url || (img._url = img.toDataURL('image/png'));
+      const op = st.globalAlpha<1 ? ` opacity="${fmt(st.globalAlpha)}"` : '';
+      if(full) this.out.push(`<image href="${svgEsc(src)}" x="${fmt(x)}" y="${fmt(y)}" width="${fmt(w)}" height="${fmt(h)}" preserveAspectRatio="none" transform="matrix(${m.map(fmt).join(' ')})"${op}/>`);
+      else this.out.push(`<g transform="matrix(${m.map(fmt).join(' ')})"${op}><svg x="${fmt(x)}" y="${fmt(y)}" width="${fmt(w)}" height="${fmt(h)}" viewBox="${fmt(sx)} ${fmt(sy)} ${fmt(sw)} ${fmt(sh)}" preserveAspectRatio="none" overflow="hidden"><image href="${svgEsc(src)}" width="${nw}" height="${nh}"/></svg></g>`);
       return;
     }
     const r = this.real, win = this.win, a = this.tp(x,y), b = this.tp(x+w,y+h);
@@ -3412,17 +3535,16 @@ class VectorCtx {
       const X0 = Math.min(a[0],b[0]), X1 = Math.max(a[0],b[0]), Y0 = Math.min(a[1],b[1]), Y1 = Math.max(a[1],b[1]);
       const vx0 = Math.max(X0, win.x0), vx1 = Math.min(X1, win.x1), vy0 = Math.max(Y0, win.y0), vy1 = Math.min(Y1, win.y1);
       if(vx1 <= vx0 || vy1 <= vy0) return;
-      const nw = img.naturalWidth || img.width, nh = img.naturalHeight || img.height;
       const fx = t => (t-X0)/(X1-X0), fy = t => (t-Y0)/(Y1-Y0);
       const flipX = b[0] < a[0], flipY = b[1] < a[1];
       let sx0 = fx(vx0), sx1 = fx(vx1), sy0 = fy(vy0), sy1 = fy(vy1);
       if(flipX) [sx0, sx1] = [1-sx1, 1-sx0]; if(flipY) [sy0, sy1] = [1-sy1, 1-sy0];
       r.save(); r.setTransform(1,0,0,1,0,0); r.globalAlpha = st.globalAlpha;
-      r.drawImage(img, sx0*nw, sy0*nh, Math.max(1e-3,(sx1-sx0)*nw), Math.max(1e-3,(sy1-sy0)*nh), vx0, vy0, vx1-vx0, vy1-vy0);
+      r.drawImage(img, sx + sx0*sw, sy + sy0*sh, Math.max(1e-3,(sx1-sx0)*sw), Math.max(1e-3,(sy1-sy0)*sh), vx0, vy0, vx1-vx0, vy1-vy0);
       r.restore(); return;
     }
     if(Math.max(Math.abs(a[0]),Math.abs(a[1]),Math.abs(b[0]),Math.abs(b[1])) > 1e6) return;
-    r.save(); r.setTransform(...m); r.globalAlpha = st.globalAlpha; r.drawImage(img, x, y, w, h); r.restore();
+    r.save(); r.setTransform(...m); r.globalAlpha = st.globalAlpha; r.drawImage(img, sx, sy, sw, sh, x, y, w, h); r.restore();
   }
 }
 for(const k of ['lineWidth','lineCap','lineJoin','miterLimit','strokeStyle','fillStyle','globalAlpha','font','textAlign','textBaseline','shadowBlur','shadowColor','globalCompositeOperation','lineDashOffset'])
@@ -3675,6 +3797,7 @@ function exportPNG(){
   const grad = g.createLinearGradient(0,0,c.width*.35,c.height);
   grad.addColorStop(0,th.bg); grad.addColorStop(1,th.bg2);
   g.fillStyle = grad; g.fillRect(0,0,c.width,c.height);
+  drawBackgroundImage(g, c.width, c.height);
   withExportRender(()=> renderObjects(g, objs, [k,0,0,k,-box.x*k,-box.y*k], {x0:0, y0:0, x1:c.width, y1:c.height}));
   c.toBlob(b=>download(b, `Screenboard ${stamp()}.png`), 'image/png');
   toast('Exported a PNG.');
@@ -3690,10 +3813,577 @@ function exportSVG(){
   const th = THEMES[S.theme];
   const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${fmt(w)}" height="${fmt(h)}" viewBox="0 0 ${fmt(w)} ${fmt(h)}">`
     + `<defs><linearGradient id="bg" x1="0" y1="0" x2="${fmt(w*.35)}" y2="${fmt(h)}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${th.bg}"/><stop offset="1" stop-color="${th.bg2}"/></linearGradient>${vc.defs.join('')}</defs>`
-    + `<rect width="100%" height="100%" fill="url(#bg)"/>${vc.out.join('')}</svg>`;
+    + `<rect width="100%" height="100%" fill="url(#bg)"/>` + (bgImg.src ? `<image href="${svgEsc(bgImg.src)}" width="100%" height="100%" preserveAspectRatio="xMidYMid slice"/>` : '')
+    + `${vc.out.join('')}</svg>`;
   download(new Blob([svg], {type:'image/svg+xml'}), `Screenboard ${stamp()}.svg`);
   toast('Exported an SVG.');
 }
+
+/* ================= groups ================= */
+function groupMembers(o){
+  if(!o || !o.gid) return [o];
+  return page().objects.filter(x=>x.gid===o.gid && !x._off);
+}
+function expandGroups(list){
+  const out = new Set(list);
+  for(const o of list) if(o.gid) for(const m of groupMembers(o)) out.add(m);
+  return page().objects.filter(o=>out.has(o));
+}
+function canGroup(){ return S.selection.length > 1 && !(S.selection[0].gid && S.selection.every(o=>o.gid===S.selection[0].gid)); }
+function canUngroup(){ return S.selection.some(o=>o.gid); }
+function groupSelection(){
+  if(!canGroup()) return;
+  pushUndo();
+  const id = 'g' + uid();
+  beginEdit(S.selection).forEach(o=>{ o.gid = id; });
+  sceneDirty = true; toast('Grouped. Ctrl+Shift+G ungroups.');
+}
+function ungroupSelection(){
+  if(!canUngroup()) return;
+  pushUndo();
+  beginEdit(S.selection).forEach(o=>{ delete o.gid; });
+  sceneDirty = true; toast('Ungrouped.');
+}
+
+/* ================= arrows that stick to shapes =================
+   An arrow end dropped on or near a shape binds to it. The tip then sits on the
+   shape's edge, facing along the arrow, and follows the shape wherever it goes. */
+const BINDABLE = ['rect','ellipse','triangle','text','image','graph','equation','stroke'];
+const isLink = o => o && (o.type==='arrow' || o.type==='line');
+function boxOf(o){ const b = bbox(o); return {x:b.x, y:b.y, w:Math.max(Math.abs(b.w),1e-300), h:Math.max(Math.abs(b.h),1e-300), rot:o.rot||0}; }
+function localIn(o, p){
+  const B = boxOf(o), cx = B.x+B.w/2, cy = B.y+B.h/2, q = rot(p.x, p.y, cx, cy, -B.rot);
+  const u = (q.x-B.x)/B.w, v = (q.y-B.y)/B.h;
+  let dist;
+  if(o.type==='ellipse'){ const nx = (u-.5)*2, ny = (v-.5)*2, r = Math.hypot(nx,ny); dist = r<=1 ? 0 : (r-1)*Math.min(B.w,B.h)/2; }
+  else dist = Math.hypot(Math.max(B.x-q.x, 0, q.x-(B.x+B.w)), Math.max(B.y-q.y, 0, q.y-(B.y+B.h)));
+  return {u, v, dist};
+}
+function bindTargetAt(p, self, other){
+  const tol = 18/view().s, objs = page().objects;
+  for(let i=objs.length-1;i>=0;i--){
+    const o = objs[i];
+    if(o===self || o._off || !BINDABLE.includes(o.type) || (other && o.id===other)) continue;
+    const L = localIn(o, p);
+    if(L.dist <= tol) return {o, L};
+  }
+  return null;
+}
+function bindingFor(p, self, otherId){
+  const t = bindTargetAt(p, self, otherId); if(!t) return null;
+  let u = clamp(t.L.u, 0, 1), v = clamp(t.L.v, 0, 1);
+  if(Math.abs(u-.5) < .22 && Math.abs(v-.5) < .22){ u = .5; v = .5; }   // near the middle: aim at the centre
+  return {id:t.o.id, u, v};
+}
+function anchorWorld(o, b){
+  const B = boxOf(o), cx = B.x+B.w/2, cy = B.y+B.h/2;
+  return rot(B.x + b.u*B.w, B.y + b.v*B.h, cx, cy, B.rot);
+}
+/* where the segment P→A first meets the shape's outline, or null if P is inside it */
+function entryPoint(o, P, A){
+  const B = boxOf(o), cx = B.x+B.w/2, cy = B.y+B.h/2;
+  const p = rot(P.x, P.y, cx, cy, -B.rot), a = rot(A.x, A.y, cx, cy, -B.rot);
+  const dx = a.x-p.x, dy = a.y-p.y;
+  let t = null;
+  if(o.type==='ellipse'){
+    const rx = B.w/2, ry = B.h/2, px = (p.x-cx)/rx, py = (p.y-cy)/ry, qx = dx/rx, qy = dy/ry;
+    const A2 = qx*qx+qy*qy, B2 = 2*(px*qx+py*qy), C2 = px*px+py*py-1;
+    if(C2 <= 0) return null;
+    const D = B2*B2 - 4*A2*C2; if(D < 0 || !A2) return null;
+    t = (-B2 - Math.sqrt(D))/(2*A2);
+  } else if(o.type==='triangle' && o.tri){
+    const V = o.tri.map(q=>[B.x+q[0]*B.w, B.y+q[1]*B.h]);
+    const inside = (x,y)=>{ let s = 0; for(let i=0;i<3;i++){ const [x1,y1] = V[i], [x2,y2] = V[(i+1)%3]; s += Math.sign((x2-x1)*(y-y1)-(y2-y1)*(x-x1)); } return Math.abs(s)===3; };
+    if(inside(p.x, p.y)) return null;
+    for(let i=0;i<3;i++){
+      const [x1,y1] = V[i], [x2,y2] = V[(i+1)%3], ex = x2-x1, ey = y2-y1, den = dx*ey - dy*ex;
+      if(Math.abs(den) < 1e-300) continue;
+      const tt = ((x1-p.x)*ey - (y1-p.y)*ex)/den, ss = ((x1-p.x)*dy - (y1-p.y)*dx)/den;
+      if(tt >= 0 && tt <= 1 && ss >= 0 && ss <= 1 && (t==null || tt < t)) t = tt;
+    }
+  } else {
+    let t0 = -Infinity, t1 = Infinity;
+    for(const [pp, d, lo, hi] of [[p.x, dx, B.x, B.x+B.w], [p.y, dy, B.y, B.y+B.h]]){
+      if(Math.abs(d) < 1e-300){ if(pp < lo || pp > hi) return null; continue; }
+      let a1 = (lo-pp)/d, a2 = (hi-pp)/d; if(a1 > a2) [a1,a2] = [a2,a1];
+      t0 = Math.max(t0, a1); t1 = Math.min(t1, a2);
+    }
+    if(t0 > t1 || t0 < 0) return null;
+    t = t0;
+  }
+  if(t==null || !(t >= 0) || t > 1) return null;
+  return rot(p.x+dx*t, p.y+dy*t, cx, cy, B.rot);
+}
+/* the drawn ends of a link, given its bindings */
+function linkGeometry(o, lookup){
+  const t1 = o.b1 && lookup(o.b1.id), t2 = o.b2 && lookup(o.b2.id);
+  const s0 = {x:o.x, y:o.y}, e0 = {x:o.x+o.w, y:o.y+o.h};
+  const A = t1 && !t1._off ? anchorWorld(t1, o.b1) : s0, Bp = t2 && !t2._off ? anchorWorld(t2, o.b2) : e0;
+  let s = t1 && !t1._off ? (entryPoint(t1, Bp, A) || A) : A;
+  let e = t2 && !t2._off ? (entryPoint(t2, A, Bp) || Bp) : Bp;
+  const L = Math.hypot(e.x-s.x, e.y-s.y), gap = Math.max(o.size*1.4, 3/view().s);
+  if(L > gap*3){
+    const ux = (e.x-s.x)/L, uy = (e.y-s.y)/L;
+    if(t1 && !t1._off) s = {x:s.x+ux*gap, y:s.y+uy*gap};
+    if(t2 && !t2._off) e = {x:e.x-ux*gap, y:e.y-uy*gap};
+  }
+  return {s, e};
+}
+function updateConnectors(){
+  const objs = page().objects;
+  let any = false;
+  for(const o of objs) if(isLink(o) && (o.b1 || o.b2)){ any = true; break; }
+  if(!any) return;
+  const byId = new Map(); for(const o of objs) byId.set(o.id, o);
+  for(const o of objs){
+    if(!isLink(o) || !(o.b1 || o.b2) || o._off) continue;
+    if(drag && drag.mode==='resize' && drag.o===o) continue;
+    const {s, e} = linkGeometry(o, id=>byId.get(id));
+    if(s.x!==o.x || s.y!==o.y || e.x-s.x!==o.w || e.y-s.y!==o.h){
+      o.x = s.x; o.y = s.y; o.w = e.x-s.x; o.h = e.y-s.y; sceneDirty = true;
+    }
+  }
+}
+/* while drawing: bind both ends to whatever they're over and show the result live */
+function liveLink(o, rawS, rawE){
+  o.x = rawS.x; o.y = rawS.y; o.w = rawE.x-rawS.x; o.h = rawE.y-rawS.y;
+  const b1 = bindingFor(rawS, o, null), b2 = bindingFor(rawE, o, b1 && b1.id);
+  if(b1) o.b1 = b1; else delete o.b1;
+  if(b2) o.b2 = b2; else delete o.b2;
+  if(b1 || b2){
+    const byId = new Map(page().objects.map(x=>[x.id, x]));
+    const {s, e} = linkGeometry(o, id=>byId.get(id));
+    o.x = s.x; o.y = s.y; o.w = e.x-s.x; o.h = e.y-s.y;
+  }
+}
+function linkHighlights(){
+  const out = [];
+  let o = null;
+  if(drag && (drag.mode==='shape' || drag.mode==='snapped') && live && isLink(live)) o = live;
+  if(drag && drag.mode==='resize' && isLink(drag.o)) o = drag.o;
+  if(!o) return out;
+  const byId = new Map(page().objects.map(x=>[x.id, x]));
+  for(const b of [o.b1, o.b2]) if(b && byId.get(b.id)) out.push(byId.get(b.id));
+  return out;
+}
+function drawLinkHighlights(c){
+  const list = linkHighlights(); if(!list.length) return;
+  const dark = THEMES[S.theme].dark;
+  c.save(); c.setLineDash([6,4]); c.lineWidth = 1.5;
+  c.strokeStyle = dark ? 'rgba(143,227,172,.95)' : 'rgba(18,138,79,.95)';
+  for(const t of list){
+    const pad = 6/view().s, B = boxOf(t), cx = B.x+B.w/2, cy = B.y+B.h/2;
+    const pts = [[B.x-pad,B.y-pad],[B.x+B.w+pad,B.y-pad],[B.x+B.w+pad,B.y+B.h+pad],[B.x-pad,B.y+B.h+pad]].map(q=>{ const r = rot(q[0],q[1],cx,cy,B.rot); return W2S(r.x, r.y); });
+    c.beginPath(); pts.forEach((p,i)=> i ? c.lineTo(p.x,p.y) : c.moveTo(p.x,p.y)); c.closePath(); c.stroke();
+  }
+  c.restore();
+}
+/* a link dragged on its own lets go of shapes that aren't coming with it */
+function releaseLinks(list){
+  const moving = new Set(list.map(o=>o.id));
+  for(const o of list) if(isLink(o)){
+    if(o.b1 && !moving.has(o.b1.id)) delete o.b1;
+    if(o.b2 && !moving.has(o.b2.id)) delete o.b2;
+  }
+}
+
+/* ================= graph sliders ================= */
+const SLIDER_DUR = 4000;
+function constOf(o, name){ const r = graphProg(o); return r.prog.consts[name]; }
+function sliderRange(o, name){
+  if(o.srange && o.srange[name]) return o.srange[name];
+  const v = constOf(o, name) ?? 0;
+  if(Math.abs(v) <= 10) return [-10, 10];
+  const m = nice(Math.abs(v)*2);
+  return [-m, m];
+}
+function sliderStep(min, max){ return nice((max-min)/400); }
+function setConst(o, name, v){
+  const [min, max] = sliderRange(o, name), st = sliderStep(min, max);
+  v = clamp(Math.round(v/st)*st, min, max);
+  const txt = fmtNum(v, st);
+  const re = new RegExp('^\\s*' + name + '\\s*=\\s*[^<>={}]*$');
+  o.exprs = o.exprs.map(l => re.test(l) ? `${name} = ${txt}` : l);
+}
+function sliderNames(o){
+  const r = graphProg(o), names = [];
+  for(const l of o.exprs){ const m = normRel(l).match(/^\s*([a-zA-Z])\s*=\s*[^<>={}]+$/); if(m && m[1] in r.prog.consts && !names.includes(m[1])) names.push(m[1]); }
+  return names;
+}
+function drawSliders(c, o, b, fs, s, ink){
+  const names = sliderNames(o);
+  o._sl = null;
+  if(!o.sliders || !names.length) return;
+  const th = THEMES[S.theme], rowH = fs*2.2, pad = fs*0.8, bottom = b.y + b.h - pad*0.6;
+  const x0 = b.x + pad, labelW = fs*6.2, playR = fs*0.75;
+  const tx0 = x0 + labelW, tx1 = b.x + b.w - pad - playR*2 - fs*0.8;
+  if(tx1 - tx0 < fs*3) return;
+  const top = bottom - rowH*names.length;
+  c.save();
+  c.fillStyle = th.bg; c.globalAlpha = 0.82;
+  c.beginPath(); if(c.roundRect) c.roundRect(b.x+pad*0.4, top-fs*0.3, b.w-pad*0.8, bottom-top+fs*0.5, fs*0.5); else c.rect(b.x+pad*0.4, top-fs*0.3, b.w-pad*0.8, bottom-top+fs*0.5);
+  c.fill(); c.globalAlpha = 1;
+  const rows = [];
+  names.forEach((name, i)=>{
+    const y = top + rowH*(i+0.5), [min, max] = sliderRange(o, name), v = constOf(o, name) ?? 0;
+    const st = sliderStep(min, max), kx = tx0 + (clamp(v, min, max)-min)/(max-min)*(tx1-tx0);
+    c.fillStyle = `rgba(${ink},.85)`; c.font = `600 ${fs}px ${UI_FONT}`; c.textAlign = 'left'; c.textBaseline = 'middle';
+    c.fillText(`${name} = ${fmtNum(v, st)}`, x0, y);
+    c.strokeStyle = `rgba(${ink},.25)`; c.lineWidth = fs*0.28; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(tx0, y); c.lineTo(tx1, y); c.stroke();
+    c.strokeStyle = o.color; c.beginPath(); c.moveTo(tx0, y); c.lineTo(kx, y); c.stroke();
+    c.fillStyle = o.color; c.beginPath(); c.arc(kx, y, fs*0.55, 0, TAU); c.fill();
+    const px = tx1 + fs*0.8 + playR, playing = o._play && o._play[name];
+    c.strokeStyle = `rgba(${ink},.5)`; c.lineWidth = fs*0.1; c.beginPath(); c.arc(px, y, playR, 0, TAU); c.stroke();
+    c.fillStyle = `rgba(${ink},.85)`; c.beginPath();
+    if(playing){ c.rect(px-playR*0.38, y-playR*0.4, playR*0.26, playR*0.8); c.rect(px+playR*0.12, y-playR*0.4, playR*0.26, playR*0.8); }
+    else { c.moveTo(px-playR*0.28, y-playR*0.45); c.lineTo(px+playR*0.48, y); c.lineTo(px-playR*0.28, y+playR*0.45); c.closePath(); }
+    c.fill();
+    rows.push({name, y, h:rowH, tx0, tx1, px, pr:playR*1.3, min, max});
+  });
+  c.restore();
+  o._sl = rows;
+}
+function sliderHit(wp){
+  const objs = page().objects;
+  for(let i=objs.length-1;i>=0;i--){
+    const o = objs[i];
+    if(o.type!=='graph' || !o.sliders || !o._sl || o._off) continue;
+    const b = bbox(o), cx = b.x+b.w/2, cy = b.y+b.h/2, q = rot(wp.x, wp.y, cx, cy, -(o.rot||0));
+    for(const r of o._sl){
+      if(Math.abs(q.y - r.y) > r.h/2) continue;
+      if(Math.hypot(q.x-r.px, q.y-r.y) <= r.pr) return {o, row:r, kind:'play'};
+      if(q.x >= r.tx0 - r.h*0.4 && q.x <= r.tx1 + r.h*0.4) return {o, row:r, kind:'track'};
+    }
+  }
+  return null;
+}
+function sliderValueAt(o, row, wp){
+  const b = bbox(o), cx = b.x+b.w/2, cy = b.y+b.h/2, q = rot(wp.x, wp.y, cx, cy, -(o.rot||0));
+  return row.min + clamp((q.x-row.tx0)/(row.tx1-row.tx0), 0, 1)*(row.max-row.min);
+}
+let lastAnim = 0;
+function animateSliders(){
+  const now = performance.now(), dt = lastAnim ? Math.min(100, now - lastAnim) : 16; lastAnim = now;
+  for(const o of page().objects){
+    if(o.type!=='graph' || !o._play) continue;
+    for(const name in o._play){
+      const dir = o._play[name]; if(!dir) continue;
+      const [min, max] = sliderRange(o, name);
+      let v = (constOf(o, name) ?? 0) + dir*(max-min)*dt/SLIDER_DUR;
+      if(v >= max){ v = max; o._play[name] = -1; } else if(v <= min){ v = min; o._play[name] = 1; }
+      setConst(o, name, v);
+      sceneDirty = true;
+    }
+  }
+}
+
+/* ================= images: crop, cutout shapes, adjustments ================= */
+const IMG_DEFAULT = {brightness:0, contrast:0, saturation:0, warmth:0, hue:0, blur:0, filter:'none'};
+const IMG_FILTERS = {
+  none:{}, mono:{saturation:-100}, noir:{saturation:-100, contrast:45, brightness:-6}, sepia:{sepia:1},
+  vivid:{saturation:45, contrast:18}, warm:{warmth:35, saturation:8}, cool:{warmth:-35}, fade:{contrast:-28, brightness:12, saturation:-20}, invert:{invert:1}
+};
+function isPlainImage(o){
+  const a = o.adj;
+  return !a || (Object.keys(IMG_DEFAULT).every(k=>a[k]==null || a[k]===IMG_DEFAULT[k]));
+}
+/* one 3×4 colour matrix for all the sliders and the filter */
+function imageMatrix(adj){
+  let M = [1,0,0,0, 0,1,0,0, 0,0,1,0];
+  const apply = N => { const R = []; for(let r=0;r<3;r++){ for(let c=0;c<4;c++){ let v = c===3 ? N[r*4+3] : 0; for(let k=0;k<3;k++) v += N[r*4+k]*M[k*4+c]; R.push(v); } } M = R; };
+  const P = IMG_FILTERS[adj.filter||'none'] || {}, val = k => (adj[k]||0) + (P[k]||0);
+  if(P.sepia) apply([.393,.769,.189,0, .349,.686,.168,0, .272,.534,.131,0]);
+  const sat = clamp(1 + val('saturation')/100, 0, 3), lr = .2126, lg = .7152, lb = .0722;
+  apply([lr+(1-lr)*sat, lg-lg*sat, lb-lb*sat, 0,  lr-lr*sat, lg+(1-lg)*sat, lb-lb*sat, 0,  lr-lr*sat, lg-lg*sat, lb+(1-lb)*sat, 0]);
+  if(adj.hue){
+    const a = adj.hue*Math.PI/180, co = Math.cos(a), si = Math.sin(a);
+    apply([.213+co*.787-si*.213, .715-co*.715-si*.715, .072-co*.072+si*.928, 0,
+           .213-co*.213+si*.143, .715+co*.285+si*.140, .072-co*.072-si*.283, 0,
+           .213-co*.213-si*.787, .715-co*.715+si*.715, .072+co*.928+si*.072, 0]);
+  }
+  const cf = clamp(1 + val('contrast')/100, 0, 3);
+  apply([cf,0,0,128*(1-cf), 0,cf,0,128*(1-cf), 0,0,cf,128*(1-cf)]);
+  const br = val('brightness')*1.28, wm = val('warmth')*0.45;
+  apply([1,0,0,br+wm, 0,1,0,br, 0,0,1,br-wm]);
+  if(P.invert) apply([-1,0,0,255, 0,-1,0,255, 0,0,-1,255]);
+  return M;
+}
+function processImage(img, adj, maxSide){
+  const nw = img.naturalWidth || img.width, nh = img.naturalHeight || img.height;
+  const k = Math.min(1, maxSide/Math.max(nw, nh)), w = Math.max(1, Math.round(nw*k)), h = Math.max(1, Math.round(nh*k));
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d', {willReadFrequently:true});
+  g.drawImage(img, 0, 0, w, h);
+  const M = imageMatrix(adj);
+  const id = g.getImageData(0, 0, w, h), d = id.data;
+  for(let i=0;i<d.length;i+=4){
+    const r = d[i], gg = d[i+1], b = d[i+2];
+    d[i]   = M[0]*r + M[1]*gg + M[2]*b + M[3];
+    d[i+1] = M[4]*r + M[5]*gg + M[6]*b + M[7];
+    d[i+2] = M[8]*r + M[9]*gg + M[10]*b + M[11];
+  }
+  g.putImageData(id, 0, 0);
+  if(adj.blur > 0 && 'filter' in g){
+    const c2 = document.createElement('canvas'); c2.width = w; c2.height = h;
+    const g2 = c2.getContext('2d'); g2.filter = `blur(${(adj.blur/100)*Math.min(w,h)*0.04}px)`;
+    g2.drawImage(c, 0, 0); return c2;
+  }
+  return c;
+}
+const processedCache = new Map();
+function imageFor(o){
+  const im = getImg(o.src);
+  if(!(im.complete && im.naturalWidth)) return null;
+  if(isPlainImage(o)) return im;
+  const key = o.src.length + ':' + o.src.slice(-64) + JSON.stringify(o.adj);
+  let c = processedCache.get(key);
+  if(!c){ c = processImage(im, o.adj, 3072); processedCache.set(key, c); if(processedCache.size > 40) processedCache.delete(processedCache.keys().next().value); }
+  return c;
+}
+function imageClip(c, o, b){
+  const shape = o.shape || 'rect';
+  if(shape==='rect' && !(o.radius > 0)) return;
+  c.beginPath();
+  if(shape==='circle') c.ellipse(b.x+b.w/2, b.y+b.h/2, b.w/2, b.h/2, 0, 0, TAU);
+  else { const r = clamp(o.radius||0, 0, 0.5)*Math.min(b.w, b.h); if(c.roundRect) c.roundRect(b.x, b.y, b.w, b.h, r); else c.rect(b.x, b.y, b.w, b.h); }
+  c.clip();
+}
+
+/* ================= surfaces: built-in, custom colour, image ================= */
+function hexToRgb(col){
+  colorProbe.fillStyle = '#000'; colorProbe.fillStyle = col;
+  const v = colorProbe.fillStyle;
+  if(v[0]==='#') return [parseInt(v.slice(1,3),16), parseInt(v.slice(3,5),16), parseInt(v.slice(5,7),16), 1];
+  const m = v.match(/[\d.]+/g) || [0,0,0,1]; return [+m[0], +m[1], +m[2], m[3]!=null ? +m[3] : 1];
+}
+function lum(col){ const [r,g,b] = hexToRgb(col).map((x,i)=> i<3 ? (x/255 <= .03928 ? x/255/12.92 : ((x/255+.055)/1.055)**2.4) : x); return .2126*r + .7152*g + .0722*b; }
+function contrastRatio(a, b){ const A = lum(a), B = lum(b); return (Math.max(A,B)+.05)/(Math.min(A,B)+.05); }
+function shade(col, f){ const [r,g,b] = hexToRgb(col); const t = v => Math.round(clamp(v*(1+f), 0, 255)).toString(16).padStart(2,'0'); return '#' + t(r) + t(g) + t(b); }
+function makeCustomTheme(color){
+  const dark = lum(color) < 0.18;
+  THEMES.custom = {label:'Custom', bg:color, bg2:shade(color, dark ? -0.18 : -0.035), dark,
+    guide: dark ? 'rgba(255,255,255,.075)' : 'rgba(20,30,40,.09)',
+    palette: (dark ? THEMES.chalkboard : THEMES.whiteboard).palette.slice()};
+}
+const bgImg = {src:null, im:null};
+function setBackgroundImage(src){
+  bgImg.src = src; bgImg.im = null;
+  if(!src){ sceneDirty = true; syncSurfacePop(); return; }
+  const im = new Image();
+  im.onload = ()=>{
+    bgImg.im = im;
+    // pick an ink palette that reads on this picture
+    const c = document.createElement('canvas'); c.width = c.height = 16;
+    const g = c.getContext('2d'); g.drawImage(im, 0, 0, 16, 16);
+    const d = g.getImageData(0,0,16,16).data; let r = 0, gg = 0, b = 0;
+    for(let i=0;i<d.length;i+=4){ r += d[i]; gg += d[i+1]; b += d[i+2]; }
+    const n = d.length/4, hex = v => Math.round(v/n).toString(16).padStart(2,'0');
+    S.customColor = '#' + hex(r) + hex(gg) + hex(b);
+    makeCustomTheme(S.customColor); setTheme('custom');
+    sceneDirty = true; syncSurfacePop();
+  };
+  im.src = src;
+}
+function drawBackgroundImage(c, w, h){
+  if(!bgImg.im) return;
+  const iw = bgImg.im.naturalWidth, ih = bgImg.im.naturalHeight, k = Math.max(w/iw, h/ih);
+  c.drawImage(bgImg.im, (w-iw*k)/2, (h-ih*k)/2, iw*k, ih*k);
+}
+function syncSurfacePop(){
+  document.querySelectorAll('#surfacePop .sf').forEach(b=> b.classList.toggle('on', b.dataset.theme===S.theme && (b.dataset.theme!=='custom' || !bgImg.src)));
+  $('sfImgOn').classList.toggle('on', !!bgImg.src);
+  $('sfRemoveImg').hidden = !bgImg.src;
+  $('themeVal').textContent = bgImg.src ? 'Image' : THEMES[S.theme].label;
+}
+
+/* ================= ink that's hard to see on this background ================= */
+let contrastDismissed = '', contrastKey = '';
+function paletteIndexOf(col){
+  for(const t of ['chalkboard','whiteboard','slate']){ const i = THEMES[t].palette.findIndex(p=>rgbEq(p, col)); if(i>=0) return i; }
+  return -1;
+}
+function readableColor(col){
+  const i = paletteIndexOf(col), pal = THEMES[S.theme].palette;
+  if(i >= 0) return pal[i];
+  // unknown colour: flip its lightness, keep its hue
+  const [r,g,b] = hexToRgb(col).map(v=>v/255), mx = Math.max(r,g,b), mn = Math.min(r,g,b);
+  let h = 0, s = 0; const l = (mx+mn)/2, d = mx-mn;
+  if(d){ s = d/(1-Math.abs(2*l-1)); h = mx===r ? ((g-b)/d)%6 : mx===g ? (b-r)/d+2 : (r-g)/d+4; h *= 60; }
+  const L = THEMES[S.theme].dark ? Math.max(0.78, 1-l) : Math.min(0.32, 1-l);
+  return `hsl(${Math.round((h+360)%360)} ${Math.round(s*100)}% ${Math.round(L*100)}%)`;
+}
+function lowContrast(){
+  const bg = THEMES[S.theme].bg;
+  return S.selection.filter(o=>o.color && !o._off && contrastRatio(o.color, bg) < 2);
+}
+function syncContrastPop(){
+  const pop = $('cpop');
+  if(drag || !S.selection.length || editing || dlgOpen()){ if(pop.classList.contains('show')) pop.classList.remove('show'); return; }
+  const key = S.theme + '|' + S.selection.map(o=>o.id + o.color).join(',');
+  if(key === contrastKey) return;
+  contrastKey = key;
+  const bad = lowContrast();
+  if(!bad.length || key === contrastDismissed){ pop.classList.remove('show'); return; }
+  const light = bad.filter(o=>lum(o.color) > 0.35).length >= bad.length/2;
+  const target = light ? 'chalkboard' : 'whiteboard';
+  $('cpSwitch').textContent = 'Switch to ' + THEMES[target].label;
+  $('cpSwitch').dataset.theme = target;
+  $('cpText').textContent = bad.length===1 ? 'This is hard to see on this background.' : `${bad.length} of these are hard to see on this background.`;
+  pop.classList.add('show');
+}
+function fixContrast(){
+  const bad = lowContrast(); if(!bad.length) return;
+  pushUndo();
+  const edited = beginEdit(S.selection);
+  for(const o of edited) if(o.color && contrastRatio(o.color, THEMES[S.theme].bg) < 2) o.color = readableColor(o.color);
+  sceneDirty = true; $('cpop').classList.remove('show'); contrastKey = '';
+}
+
+/* ================= image editor ================= */
+const IMG_SLIDERS = [['brightness','Brightness',-100,100], ['contrast','Contrast',-100,100], ['saturation','Saturation',-100,100],
+                     ['warmth','Warmth',-100,100], ['hue','Hue',-180,180], ['blur','Blur',0,100]];
+const IMG_ASPECTS = [['Free',null], ['1:1',1], ['4:3',4/3], ['3:4',3/4], ['16:9',16/9]];
+const IMG_SHAPES = [['rect','Rectangle'], ['round','Rounded'], ['circle','Circle']];
+const IMG_FILTER_NAMES = [['none','None'], ['mono','Mono'], ['noir','Noir'], ['sepia','Sepia'], ['vivid','Vivid'], ['warm','Warm'], ['cool','Cool'], ['fade','Fade'], ['invert','Invert']];
+const IMG_HTML = `
+  <canvas id="iePrev" class="ieprev"></canvas>
+  <p class="note iehint">Drag the corners or edges to crop, or drag inside to move the crop.</p>
+  <div class="ierow"><span class="ielab">Crop</span><div class="chips" id="ieAspect"></div></div>
+  <div class="ierow"><span class="ielab">Shape</span><div class="chips" id="ieShape"></div></div>
+  <label class="ieslider" id="ieRadiusRow"><span>Corners</span><input type="range" id="ieRadius" min="0" max="50" step="1"><em id="ieRadiusV"></em></label>
+  <div class="ierow"><span class="ielab">Filter</span><div class="chips" id="ieFilter"></div></div>
+  <div id="ieSliders"></div>
+  <button class="btn ghost" id="ieReset" type="button">Reset everything</button>`;
+
+function openImageDialog(o){
+  const im = getImg(o.src);
+  if(!(im.complete && im.naturalWidth)){ toast('The picture is still loading.'); return; }
+  openDlg('Edit image', 'Save', IMG_HTML);
+  const nw = im.naturalWidth, nh = im.naturalHeight;
+  const fresh = ()=>({crop:{x:0,y:0,w:1,h:1}, shape:'rect', radius:0, adj:Object.assign({}, IMG_DEFAULT), aspect:null});
+  const st = {crop:Object.assign({x:0,y:0,w:1,h:1}, o.crop), shape:o.shape||'rect', radius:Math.round((o.radius||0)*100),
+              adj:Object.assign({}, IMG_DEFAULT, o.adj), aspect:null};
+  const cv2 = $('iePrev');
+  let small = null, smallKey = '';
+  const layout = ()=>{
+    const Wd = cv2.clientWidth || 480, maxH = Math.min(300, window.innerHeight*0.34), k = Math.min(Wd/nw, maxH/nh);
+    return {w:nw*k, h:nh*k, ox:(Wd-nw*k)/2, oy:0};
+  };
+  function draw(){
+    const L = layout(), d = Math.min(window.devicePixelRatio||1, 2);
+    cv2.style.height = L.h + 'px';
+    cv2.width = Math.round((cv2.clientWidth||480)*d); cv2.height = Math.round(L.h*d);
+    const g = cv2.getContext('2d'); g.setTransform(d,0,0,d,0,0);
+    const key = JSON.stringify(st.adj);
+    if(key !== smallKey){ small = isPlainImage({adj:st.adj}) ? im : processImage(im, st.adj, 560); smallKey = key; }
+    g.globalAlpha = 0.3; g.drawImage(small, L.ox, L.oy, L.w, L.h); g.globalAlpha = 1;
+    const c = st.crop, r = {x:L.ox+c.x*L.w, y:L.oy+c.y*L.h, w:c.w*L.w, h:c.h*L.h};
+    g.save(); g.beginPath(); g.rect(r.x, r.y, r.w, r.h); g.clip();
+    imageClip(g, {shape:st.shape, radius:st.radius/100}, r);
+    g.drawImage(small, L.ox, L.oy, L.w, L.h); g.restore();
+    g.strokeStyle = 'rgba(255,255,255,.95)'; g.lineWidth = 1.5; g.strokeRect(r.x+.5, r.y+.5, r.w-1, r.h-1);
+    g.strokeStyle = 'rgba(255,255,255,.3)'; g.lineWidth = 1; g.beginPath();
+    for(const f of [1/3, 2/3]){ g.moveTo(r.x+r.w*f, r.y); g.lineTo(r.x+r.w*f, r.y+r.h); g.moveTo(r.x, r.y+r.h*f); g.lineTo(r.x+r.w, r.y+r.h*f); }
+    g.stroke();
+    g.fillStyle = '#fff';
+    for(const [x,y] of [[r.x,r.y],[r.x+r.w,r.y],[r.x+r.w,r.y+r.h],[r.x,r.y+r.h]]){ g.beginPath(); g.arc(x, y, 5.5, 0, TAU); g.fill(); }
+    if(!st.aspect) for(const [x,y] of [[r.x+r.w/2,r.y],[r.x+r.w,r.y+r.h/2],[r.x+r.w/2,r.y+r.h],[r.x,r.y+r.h/2]]) g.fillRect(x-4, y-4, 8, 8);
+  }
+  const fitAspect = A=>{
+    const c = st.crop, cxn = c.x + c.w/2, cyn = c.y + c.h/2;
+    let w = nw, h = nw/A; if(h > nh){ h = nh; w = nh*A; }
+    const wn = w/nw, hn = h/nh;
+    st.crop = {x:clamp(cxn-wn/2, 0, 1-wn), y:clamp(cyn-hn/2, 0, 1-hn), w:wn, h:hn};
+  };
+  const chipRow = (el, items, isOn, pick)=>{
+    el.innerHTML = '';
+    for(const [val, label] of items){
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = label;
+      b.classList.toggle('on', isOn(val)); b.onclick = ()=>{ pick(val); sync(); };
+      el.appendChild(b);
+    }
+  };
+  function sync(){
+    chipRow($('ieAspect'), IMG_ASPECTS.map(([l,v])=>[v,l]), v=>v===st.aspect, v=>{ st.aspect = v; if(v) fitAspect(v); });
+    chipRow($('ieShape'), IMG_SHAPES, v=>v===st.shape, v=>{ st.shape = v; if(v==='round' && !st.radius) st.radius = 14; if(v==='circle'){ st.aspect = 1; fitAspect(1); } });
+    chipRow($('ieFilter'), IMG_FILTER_NAMES, v=>v===(st.adj.filter||'none'), v=>{ st.adj.filter = v; });
+    $('ieRadiusRow').style.display = st.shape==='round' ? '' : 'none';
+    $('ieRadius').value = st.radius; $('ieRadiusV').textContent = st.radius + '%';
+    for(const [k] of IMG_SLIDERS){ const inp = $('ie_'+k); if(inp){ inp.value = st.adj[k]||0; $('ie_'+k+'V').textContent = st.adj[k]||0; } }
+    draw();
+  }
+  const box = $('ieSliders');
+  for(const [k, label, min, max] of IMG_SLIDERS){
+    const row = document.createElement('label'); row.className = 'ieslider';
+    row.innerHTML = `<span>${label}</span><input type="range" id="ie_${k}" min="${min}" max="${max}" step="1"><em id="ie_${k}V"></em>`;
+    box.appendChild(row);
+    const inp = row.querySelector('input');
+    inp.addEventListener('input', ()=>{ st.adj[k] = +inp.value; $('ie_'+k+'V').textContent = inp.value; draw(); });
+    inp.addEventListener('dblclick', ()=>{ st.adj[k] = 0; sync(); });
+  }
+  $('ieRadius').addEventListener('input', e=>{ st.radius = +e.target.value; $('ieRadiusV').textContent = st.radius + '%'; draw(); });
+  $('ieReset').onclick = ()=>{ Object.assign(st, fresh()); sync(); };
+
+  // crop handles
+  let act = null;
+  cv2.addEventListener('pointerdown', e=>{
+    const L = layout(), px = e.offsetX, py = e.offsetY, c = st.crop;
+    const X0 = L.ox+c.x*L.w, X1 = L.ox+(c.x+c.w)*L.w, Y0 = L.oy+c.y*L.h, Y1 = L.oy+(c.y+c.h)*L.h, near = (x,y)=>Math.hypot(px-x, py-y) <= 16;
+    let h;
+    if(near(X0,Y0)) h = 'nw'; else if(near(X1,Y0)) h = 'ne'; else if(near(X1,Y1)) h = 'se'; else if(near(X0,Y1)) h = 'sw';
+    else if(!st.aspect && Math.abs(py-Y0) < 10 && px > X0 && px < X1) h = 'n';
+    else if(!st.aspect && Math.abs(py-Y1) < 10 && px > X0 && px < X1) h = 's';
+    else if(!st.aspect && Math.abs(px-X0) < 10 && py > Y0 && py < Y1) h = 'w';
+    else if(!st.aspect && Math.abs(px-X1) < 10 && py > Y0 && py < Y1) h = 'e';
+    else if(px > X0 && px < X1 && py > Y0 && py < Y1) h = 'move';
+    else h = 'new';
+    const nx = clamp((px-L.ox)/L.w, 0, 1), ny = clamp((py-L.oy)/L.h, 0, 1);
+    act = {h, sx:nx, sy:ny, c0:{...c}};
+    if(h==='new'){ act.c0 = {x:nx, y:ny, w:0, h:0}; act.h = 'se'; }
+    cv2.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  cv2.addEventListener('pointermove', e=>{
+    if(!act) return;
+    const L = layout(), nx = clamp((e.offsetX-L.ox)/L.w, 0, 1), ny = clamp((e.offsetY-L.oy)/L.h, 0, 1), c0 = act.c0;
+    if(act.h==='move'){
+      st.crop = {x:clamp(c0.x + nx-act.sx, 0, 1-c0.w), y:clamp(c0.y + ny-act.sy, 0, 1-c0.h), w:c0.w, h:c0.h};
+      draw(); return;
+    }
+    let x0 = c0.x, y0 = c0.y, x1 = c0.x+c0.w, y1 = c0.y+c0.h;
+    if(act.h.includes('w')) x0 = nx; if(act.h.includes('e')) x1 = nx;
+    if(act.h.includes('n')) y0 = ny; if(act.h.includes('s')) y1 = ny;
+    if(st.aspect && act.h.length===2){
+      const hn = Math.abs(x1-x0)*nw/st.aspect/nh, sgn = Math.sign((act.h.includes('n') ? y0-y1 : y1-y0) || 1);
+      if(act.h.includes('n')) y0 = clamp(y1 + sgn*hn, 0, 1); else y1 = clamp(y0 + sgn*hn, 0, 1);
+      const got = Math.abs(y1-y0)*nh*st.aspect/nw;                    // hit the top or bottom: shrink the width to match
+      if(got < Math.abs(x1-x0) - 1e-9){ if(act.h.includes('w')) x0 = x1 - Math.sign(x1-x0)*got; else x1 = x0 + Math.sign(x1-x0)*got; }
+    }
+    st.crop = {x:Math.min(x0,x1), y:Math.min(y0,y1), w:Math.max(0.02, Math.abs(x1-x0)), h:Math.max(0.02, Math.abs(y1-y0))};
+    st.crop.x = Math.min(st.crop.x, 1-st.crop.w); st.crop.y = Math.min(st.crop.y, 1-st.crop.h);
+    draw();
+  });
+  const end = ()=>{ act = null; };
+  cv2.addEventListener('pointerup', end); cv2.addEventListener('pointercancel', end);
+
+  sync();
+  requestAnimationFrame(draw);
+  dlg = {ok(){
+    if(!page().objects.includes(o)){ closeDlg(); return; }
+    pushUndo();
+    const e2 = beginEdit([o])[0], oc = Object.assign({x:0,y:0,w:1,h:1}, o.crop), nc = st.crop;
+    const kx = e2.w/(oc.w*nw), ky = e2.h/(oc.h*nh);
+    const ux = e2.x - oc.x*nw*kx, uy = e2.y - oc.y*nh*ky;         // where the whole picture would sit
+    Object.assign(e2, {x:ux + nc.x*nw*kx, y:uy + nc.y*nh*ky, w:nc.w*nw*kx, h:nc.h*nh*ky});
+    const full = nc.x===0 && nc.y===0 && nc.w===1 && nc.h===1;
+    if(full) delete e2.crop; else e2.crop = {...nc};
+    if(st.shape==='rect' && !st.radius) delete e2.shape; else e2.shape = st.shape;
+    if(st.shape==='round') e2.radius = st.radius/100; else delete e2.radius;
+    if(isPlainImage({adj:st.adj})) delete e2.adj; else e2.adj = {...st.adj};
+    sceneDirty = true; closeDlg();
+  }};
+}
+
 
 /* ---------------- chrome ---------------- */
 const TOOL_SIZE = Object.assign({}, DEFAULT_SIZE);
@@ -3886,10 +4576,27 @@ function setTheme(name){
   $('themeVal').textContent = THEMES[name].label;
   sceneDirty = true;
 }
-$('themeBtn').onclick = ()=>{
+$('themeBtn').onclick = ()=>{ syncSurfacePop(); openPopAt($('surfacePop'), $('menuBtn'), 'below'); };
+function cycleTheme(){
   const i = THEME_ORDER.indexOf(S.theme);
-  setTheme(THEME_ORDER[(i+1)%THEME_ORDER.length]);
-};
+  if(bgImg.src) setBackgroundImage(null);
+  setTheme(THEME_ORDER[(i+1)%THEME_ORDER.length]); syncSurfacePop();
+}
+document.querySelectorAll('#surfacePop .sf[data-theme]').forEach(b=>{
+  if(b.dataset.theme==='custom') return;
+  b.onclick = ()=>{ if(bgImg.src) setBackgroundImage(null); setTheme(b.dataset.theme); syncSurfacePop(); };
+});
+$('sfColor').addEventListener('input', e=>{
+  if(bgImg.src) setBackgroundImage(null);
+  S.customColor = e.target.value; makeCustomTheme(S.customColor); setTheme('custom');
+  $('sfCustomSw').style.background = S.customColor; syncSurfacePop();
+});
+$('sfImgOn').onclick = ()=> $('fileBg').click();
+$('fileBg').addEventListener('change', e=>{
+  const f = e.target.files[0]; e.target.value = ''; if(!f) return;
+  const r = new FileReader(); r.onload = ()=> setBackgroundImage(r.result); r.readAsDataURL(f);
+});
+$('sfRemoveImg').onclick = ()=>{ setBackgroundImage(null); setTheme(THEMES.custom && lum(THEMES.custom.bg) < .18 ? 'chalkboard' : 'whiteboard'); syncSurfacePop(); };
 $('gridBtn').onclick = ()=>{
   S.grid = GRIDS[(GRIDS.indexOf(S.grid)+1)%GRIDS.length];
   $('gridVal').textContent = S.grid==='none' ? 'Off' : S.grid[0].toUpperCase()+S.grid.slice(1);
@@ -3905,10 +4612,15 @@ document.querySelectorAll('#menu .mi').forEach(b=>{
   b.addEventListener('click', closePops);
 });
 $('dupBtn').onclick   = ()=> duplicateSelection();
+$('groupBtn').onclick = ()=> groupSelection();
+$('ungroupBtn').onclick = ()=> ungroupSelection();
+$('cpFix').onclick = ()=> fixContrast();
+$('cpSwitch').onclick = e=>{ if(bgImg.src) setBackgroundImage(null); setTheme(e.currentTarget.dataset.theme); syncSurfacePop(); $('cpop').classList.remove('show'); };
+$('cpX').onclick = ()=>{ contrastDismissed = contrastKey; $('cpop').classList.remove('show'); };
 $('pngBtn').onclick = ()=> exportPNG();
 $('svgBtn').onclick = ()=> exportSVG();
 $('editBtn').onclick  = ()=>{ if(S.selection.length===1) editObject(S.selection[0]); };
-$('graphBtn').onclick = ()=>{ const lines = selectionGraphLines(); if(lines) graphLines(lines, S.selection[0]); };
+$('graphBtn').onclick = e=>{ const lines = selectionGraphLines(); if(lines) graphLines(lines, S.selection[0], e.shiftKey); };
 $('mGraph').onclick = ()=>{ closePops(); openGraphDialog(null); };
 $('mEq').onclick    = ()=>{ closePops(); openEqDialog(null); };
 $('mRuler').onclick = ()=> toggleInst('ruler');
@@ -3998,6 +4710,7 @@ window.addEventListener('keydown', e=>{
     if(k==='n'){ e.preventDefault(); $('addPage').click(); return; }
     if(k==='a'){ e.preventDefault(); setTool('select'); S.selection = page().objects.filter(o=>!o._off); return; }
     if(k==='d'){ e.preventDefault(); duplicateSelection(); return; }
+    if(k==='g'){ e.preventDefault(); e.shiftKey ? ungroupSelection() : groupSelection(); return; }
     if(k==='0'){ e.preventDefault(); resetView(); return; }
     if(k===']'){ e.preventDefault(); reorder(1); return; }
     if(k==='['){ e.preventDefault(); reorder(-1); return; }
@@ -4014,7 +4727,7 @@ window.addEventListener('keydown', e=>{
   if(e.key===']'){ setSize(S.size+Math.max(1,Math.round(S.size*.2))); return; }
   if(e.key>='1' && e.key<='9'){ const p=THEMES[S.theme].palette[+e.key-1]; if(p) setColor(p); return; }
   if(e.key==='R' && e.shiftKey){ toggleRecording(); return; }
-  if(e.key==='B' && e.shiftKey){ $('themeBtn').click(); return; }
+  if(e.key==='B' && e.shiftKey){ cycleTheme(); toast(THEMES[S.theme].label); return; }
   if(e.key==='G' && e.shiftKey){ $('gridBtn').click(); return; }
   if(e.key==='f'||e.key==='F'){ toggleFullscreen(); return; }
   const t = KEYMAP[e.key.toLowerCase()];
@@ -4034,8 +4747,12 @@ function deleteSelection(){
 function duplicateSelection(){
   if(!S.selection.length) return;
   pushUndo();
+  const idMap = new Map(), gidMap = new Map();
+  for(const o of S.selection) idMap.set(o.id, uid());
   const p = page(), copies = S.selection.map(o=>{
-    const c = cloneObj(o); c.id = uid();
+    const c = cloneObj(o); c.id = idMap.get(o.id);
+    if(c.gid){ if(!gidMap.has(c.gid)) gidMap.set(c.gid, 'g'+uid()); c.gid = gidMap.get(c.gid); }
+    for(const k of ['b1','b2']) if(c[k]){ if(idMap.has(c[k].id)) c[k] = {...c[k], id:idMap.get(c[k].id)}; else delete c[k]; }
     const d = 18/view().s;
     if(c.points){ c.points.forEach(q=>{ q.x+=d; q.y+=d; }); c._bb=null; }
     else { c.x+=d; c.y+=d; }
